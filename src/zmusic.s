@@ -17,8 +17,8 @@
 	.include	doscall.mac
 	.include	iocscall.mac
 	.include	dma.mac
-	.include	label.s
-	.include	macro.s
+	.include	label.mac
+	.include	macro.mac
 	.list
 	.text
 
@@ -1781,7 +1781,7 @@ get_filedate:
 	clr.l	-(sp)
 	move.w	d5,-(sp)
 rwff3:
-	DOS	_FILEDATE
+	DOS	_V2_FILEDATE
 	addq.w	#6,sp
 	rts
 
@@ -1994,7 +1994,7 @@ exit_fopen:
 search_env:
 	movem.l	a0-a1,-(sp)
 rwff1:
-	DOS	_GETPDB
+	DOS	_V2_GETPDB
 	move.l	d0,a1		*環境変数文字列群
 	move.l	(a1),a1
 	addq.w	#4,a1
@@ -13480,7 +13480,7 @@ its_hex32:
 
 	.include	work.s
 
-	.include	zmsc2.has
+	.include	zmsc2.s
 
 	.data
 work_start:			*使い捨てのワーク群(後にグローバルワークとして使用される)
@@ -13532,7 +13532,7 @@ sq_m_mes:	dc.b	'The external MIDI sequencer synchronizes with ZMUSIC.X',13,10,0
 pcm8_mode_mes_:	dc.b	'MIDI and ADPCM are managed by PCM8SB.X (C)H.ETOH',13,10,0
 	endif
 pcm8_mode_mes:	dc.b	'ADPCM is managed by PCM8.X (C)H.ETOH',13,10,0
-zmt:		dc.b	$1b,'[32m・',$1b,'[31m-・・',$1b,'[m','・',$1b,'[31m・・',0
+zmt:		dc.b	$1b,'[32m',$eb,$ee,$1b,'[31m-',$eb,$ef,$eb,$f0,$1b,'[m',$eb,$f1,$1b,'[31m',$eb,$f2,$eb,$f3,0
 kaijo:		dc.b	$1b,'[mhas been released from your system.',13,10,0
 not_kep_mes:	dc.b	$1b,'[mis not kept in your system.',13,10,0
 rls_er_mes:	dc.b	$1b,'[mis unable to release.',13,10,0
@@ -15373,7 +15373,7 @@ exit_dosv:			*コンパイルデータのセーブ
 	move.l	date_buf(pc),-(sp)
 	move.w	d5,-(sp)
 rwff2:
-	DOS	_FILEDATE
+	DOS	_V2_FILEDATE
 	addq.w	#6,sp
 
 	jsr	do_fclose-work(a6)

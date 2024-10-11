@@ -1,0 +1,85 @@
+.nlist
+
+;fdef.mac - RUKA assembler macro for X680x0/Human68k(v3) by TcbnErik
+;Last-modified: 2024-10-06
+;
+;Copying and distribution of this file, with or without modification,
+;are permitted in any medium without royalty provided the copyright
+;notice and this notice are preserved.  This file is offered as-is,
+;without any warranty.
+
+
+.ifndef __fdef_mac__
+        __fdef_mac__:=1
+
+
+* Parameter Table (Parameter ID: Parameter)
+
+float_val: .equ $0001  ;8バイト浮動小数点数
+int_val:   .equ $0002  ;4バイト符号付き整数
+char_val:  .equ $0004  ;1バイト符号なし整数
+str_val:   .equ $0008  ;文字列
+
+float_omt: .equ $0081  ;省略可能な8バイト浮動小数点数
+int_omt:   .equ $0082  ;省略可能な4バイト符号付き整数
+char_omt:  .equ $0084  ;省略可能な1バイト符号なし整数
+str_omt:   .equ $0088  ;省略可能な文字列
+
+float_vp:  .equ $0011  ;8バイト浮動小数点数のデータ部のポインタ
+int_vp:    .equ $0012  ;4バイト符号付き整数のデータ部のポインタ
+char_vp:   .equ $0014  ;1バイト符号なし整数のデータ部のポインタ
+str_vp:    .equ $0018  ;文字列のデータ部のポインタ
+
+ary1:      .equ $003f  ;1次元配列(すべての型)
+ary1_i:    .equ $0032  ;1次元配列(int 型)
+ary1_fic:  .equ $0037  ;1次元配列(float, int, char 型)
+ary1_c:    .equ $0034  ;1次元配列(char 型)
+ary2_c:    .equ $0054  ;2次元配列(char 型)
+
+
+* Parameter Table (Parameter ID: Return Value)
+
+float_ret: .equ $8000  ;8バイト浮動小数点数
+int_ret:   .equ $8001  ;4バイト符号付き整数
+str_ret:   .equ $8003  ;文字列
+void_ret:  .equ $ffff  ;戻り値なし
+
+
+* Parameter (Offset) ... (n,sp)
+
+;       .equ  0  ;リターンアドレス
+;       .equ  4  ;パラメータの総個数
+par1:   .equ  6  ;第 1引数
+par2:   .equ 16  ;第 2引数
+par3:   .equ 26  ;第 3引数
+par4:   .equ 36  ;第 4引数
+par5:   .equ 46  ;第 5引数
+par6:   .equ 56  ;第 6引数
+par7:   .equ 66  ;第 7引数
+par8:   .equ 76  ;第 8引数
+par9:   .equ 86  ;第 9引数
+par10:  .equ 96  ;第10引数
+
+
+* Parameter (Format)
+
+;.offset 0
+;  .ds.w 1  ;パラメータの型
+;  .ds.b 8  ;FAC (Floating ACcumulator)
+;.text
+
+
+* Parameter (Type)
+
+;$0000  ;8バイト浮動小数点数
+;$0001  ;4バイト符号付き整数
+;$0002  ;1バイト符号なし整数
+;$0003  ;文字列
+;$ffff  ;省略された引数
+
+
+* End of File --------------------------------- *
+
+.endif
+
+.list

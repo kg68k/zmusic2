@@ -711,7 +711,7 @@ do_save:
 
 	move.l	date_buf(pc),-(sp)
 	move.w	sfh(pc),-(sp)
-	DOS	_FILEDATE
+	DOS	_V2_FILEDATE
 	addq.w	#6,sp
 
 	DOS	_ALLCLOSE
@@ -810,7 +810,7 @@ adfop0:
 
 	move.l	d4,-(sp)
 	move.w	#2,-(sp)
-	DOS	_MALLOC2
+	DOS	_V2_MALLOC2
 	addq.w	#6,sp
 	move.l	d0,read_adr-work(a6)
 	bmi	mem_error	*out of memory
@@ -870,7 +870,7 @@ non_read:			*ディスクからでなくてメモリから
 
 	move.l	d4,-(sp)
 	move.w	#2,-(sp)
-	DOS	_MALLOC2
+	DOS	_V2_MALLOC2
 	addq.w	#6,sp
 	move.l	d0,read_adr-work(a6)
 	bmi	mem_error	*out of memory
@@ -912,7 +912,7 @@ process1:
 @@:
 	move.l	d1,-(sp)
 	move.w	#2,-(sp)
-	DOS	_MALLOC2
+	DOS	_V2_MALLOC2
 	addq.w	#6,sp		*ワーク確保
 	move.l	d0,work_adr-work(a6)
 	bmi	mem_error
@@ -971,7 +971,7 @@ reverse?:			*リバース??
 	beq	fade_in_out?
 	move.l	d4,-(sp)
 	move.w	#2,-(sp)
-	DOS	_MALLOC2
+	DOS	_V2_MALLOC2
 	addq.w	#6,sp		*ワーク確保
 	tst.l	d0
 	bmi	mem_error
@@ -1076,7 +1076,7 @@ case_mix:
 
 	move.l	d2,-(sp)
 	move.w	#2,-(sp)
-	DOS	_MALLOC2	*MIX DESTINATION用のワーク
+	DOS	_V2_MALLOC2	*MIX DESTINATION用のワーク
 	addq.w	#6,sp
 	move.l	d0,dest_adr-work(a6)
 	bmi	mem_error
@@ -1954,7 +1954,7 @@ read:
 
 	clr.l	-(sp)
 	move.w	d5,-(sp)
-	DOS	_FILEDATE
+	DOS	_V2_FILEDATE
 	addq.w	#6,sp
 	move.l	d0,date_buf-work(a6)
 

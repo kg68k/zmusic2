@@ -8,8 +8,8 @@
 *-------------------------------------------------------
 	.include	iocscall.mac
 	.include	doscall.mac
-	.include	LzzConst.MAC
-	.include	label.s
+	.include	LzzConst.mac
+	.include	label.mac
 
 max_p:		equ	64	*juke boxで演奏出来る最大曲数
 ch_max:		equ	25	*fm8+adpcm1+midi16=25
@@ -3857,4 +3857,4 @@ sfp:		ds.l	1
 		ds.l	2048		*スタックエリア
 my_sp:
 end_of_prog:
-	.end	non_keep
+	.end

@@ -8,7 +8,7 @@
 *
 	.include	doscall.mac
 	.include	iocscall.mac
-	.include	fdef.h
+	.include	fdef.mac
 
 ch_max:		equ	25	*fm8+adpcm1+midi16=25
 pl_max:		equ	32	*一度に演奏可能なトラック数
@@ -323,7 +323,7 @@ init:
 	move.w	#-1,sv_fh-work(a1)	*ファイルハンドル初期化
 	DOS	_ALLCLOSE		*念のため
 
-	DOS	_GETPDB			*環境取得
+	DOS	_V2_GETPDB		*環境取得
 	move.l	d0,a0
 	move.l	(a0),env_bak-work(a1)
 
@@ -3857,7 +3857,7 @@ read:
 @@:
 	move.l	d0,-(sp)
 	move.w	#2,-(sp)
-	DOS	_MALLOC2
+	DOS	_V2_MALLOC2
 	addq.w	#6,sp
 	tst.l	d0
 	bpl	@f

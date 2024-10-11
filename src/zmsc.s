@@ -14,11 +14,11 @@
 *			T.ARIKUNI	IOCSの解析
 *			N.Yuasa		Oh!X 1990.3 p38
 
-	.include	..\doscall.mac
-	.include	..\iocscall.mac
+	.include	doscall.mac
+	.include	iocscall.mac
 	.include	dma.mac
-	.include	..\label.s
-	.include	..\macro.s
+	.include	label.mac
+	.include	macro.mac
 	.list
 	.text
 
@@ -555,7 +555,7 @@ exit_fopen:
 search_env:
 	movem.l	a0-a1,-(sp)
 rwff1:
-	DOS	_GETPDB
+	DOS	_V2_GETPDB
 	move.l	d0,a1		*環境変数文字列群
 	move.l	(a1),a1
 	addq.w	#4,a1
@@ -3092,7 +3092,7 @@ get_filedate:
 	clr.l	-(sp)
 	move.w	d5,-(sp)
 rwff3:
-	DOS	_FILEDATE
+	DOS	_V2_FILEDATE
 	addq.w	#6,sp
 	rts
 
@@ -6913,9 +6913,9 @@ its_hex32:
 	movem.l	(sp)+,d0-d1/d4/a1
 	rts
 
-	.include	..\work.s
+	.include	work.s
 
-	.include	..\zmsc2.has
+	.include	zmsc2.s
 
 	.data
 work_start:			*使い捨てのワーク群(後にグローバルワークとして使用される)

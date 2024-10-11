@@ -8,8 +8,8 @@
 *		 BY Z.NISHIKAWA
 *-----------------------------------------------
 
-	.include	IOCScall.mac
-	.include	DOScall.mac
+	.include	iocscall.mac
+	.include	doscall.mac
 	.text
 
 smax:		equ	32		*記述できるソースファイルの最大数
