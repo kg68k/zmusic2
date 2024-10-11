@@ -20,7 +20,7 @@ USE_HLKX = true
 endif
 
 TARGET = zmusic.x zmusic_rs.x zmusic_po.x zmsc.x zmsc_rs.x zmsc_po.x \
-	 musicz.fnc zp.r zpcnv.r zplk.r zvt.x
+	 musicz.fnc zp.r zpcnv.r zplk.r zvt.x comchk.r zmd18.r
 
 ZM_UNIVERSAL = -stype=0 -smpu=30 -sdebug=0
 ZM_RSMIDI    = -stype=3 -smpu=0 -sdebug=0

@@ -6,13 +6,37 @@ PCやネット上で扱いやすくするために、このリポジトリ内の
 * 文字コードをUTF-8に変更。
 * 改行をLFに変更。
 * ファイル末尾の`EOF`制御記号を削除。
-* ファイル名の整理(小文字化)。
+* ファイル名の整理(小文字化、数字のゼロ詰めなど)。
 * ファイル拡張子の整理(ドキュメント.txt、ソース.s、マクロ.mac)。
 
 ビルドにおける可搬性の向上のため、以下の変更がされています。
 * バッチファイル削除、Makefile追加。
 * 文字列中のユーザー定義外字を文字コードによる表記に変更。
 * インクルードファイル追加。
+
+
+## Manual
+* [まえがき](manual/zm00.txt)
+* [MEASURE &nbsp;1: イントロダクション](manual/zm01.txt)
+* [MEASURE &nbsp;2: ZMUSIC.Xのオプション・スイッチ解説](manual/zm02.txt)
+* [MEASURE &nbsp;3: X-BASIC用外部関数MUSICZ.FNC](manual/zm03.txt)
+* [MEASURE &nbsp;4: ZMSコマンド](manual/zm04.txt)
+* [MEASURE &nbsp;5: MML](manual/zm05.txt)
+* [MEASURE &nbsp;6: ADPCMを扱う (ZPCONV.R、ZPLK.R)](manual/zm06.txt)
+* [MEASURE &nbsp;7: プレイヤーZP.R](manual/zm07.txt)
+* [MEASURE &nbsp;8: ADPCMツールZVT.X](manual/zm08.txt)
+* [MEASURE &nbsp;9: MIDIデータを扱う](manual/zm09.txt)
+* [MEASURE 10: ZMUSICのファンクションコール](manual/zm10.txt)
+* [MEASURE 11: エラー](manual/zm11.txt)
+* [MEASURE 12: ZMD/ZPDフォーマット](manual/zm12.txt)
+* [MEASURE 13: ワークエリア](manual/zm13.txt)
+* [MEASURE 14: 効果音モードと映像同期モード](manual/zm14.txt)
+* [MEASURE 15: PCM8モード](manual/zm15.txt)
+* [MEASURE 16: 付録 (C言語ライブラリ)](manual/zm16.txt)
+* [用語解説](manual/glossary.txt)
+
+<!-- -->
+* 非公式情報: [既知の不具合](https://github.com/kg68k/x68.memo/blob/main/tool/bugs.md#z-music-v2-%E8%A9%B3%E7%B4%B0%E6%9C%AA%E7%A2%BA%E8%AA%8D)
 
 
 ## Build

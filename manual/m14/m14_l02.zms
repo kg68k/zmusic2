@@ -1,0 +1,66 @@
+.comment An old picture. by Z.Nishikawa (for SC55/SC155/CM300/CM500)
+(i)
+(b0)
+(m1,2000) (a midi1 , 1)
+(m2,2000) (a midi2 , 2)
+(m3,2000) (a midi3 , 3)
+(m4,2000) (a midi4 , 4)
+(m5,2000) (a midi5 , 5)
+(m7,2000) (a midi10, 7)
+(m8,2000) (a midi10, 8)
+(m9,2000) (a midi10, 9)
+(m10,2000)(a midi10,10)
+(m11,2000)(a midi10,11)
+(o125)
+.roland_exclusive $10,$42 ={$40,0,$7f,0}		/ initialize SC55
+.sc55_v_reserve={4,2,6,3, 3,0,0,0 ,0,6,0,0 ,0,0,0,0}	/パーシャルリザーブ
+
+(t1)@i$41,$10,$42 @e70,70 @30 v10 @p40       r16[do]
+(t2)@i$41,$10,$42 @e80,60 @36 v15            r16[do]
+(t3)@i$41,$10,$42 @e70,70 @49 v10 @p99 @k-8  r*7[do]
+(t4)@i$41,$10,$42 @e80,80         @p54 @h36  r16[do]@m40
+(t5)@i$41,$10,$42 @e80,80         @p74 @h36 r*23[do]@m40
+(t7)@i$41,$10,$42 @e80,10 @1           @r1   r16[do]
+(t8)                                   @r1   r16[do]
+(t9)				       @r1   r16[do]
+(t10)                                  @r1   r16[do]
+(t11)                                  @r1   r16[do]
+
+/	DS.GUITAR
+(t1) o2 q8 @u99 L1 'e-a-<d-' 'd-g-b' 'g-b<d-' 'e-a-<d-'
+
+/	FRETLESS BASS
+(t2) o2 q8 @u110 L1 e- d- >b<  d-
+
+/	STRINGS
+(t3) o3 q8 @u99 L1 'e-a-<d-' 'd-g-b' 'g-b<d-' 'e-a-<d-'
+
+/MELODY
+(t4)@63 o4 q8 v12 @u110@k0L8r4e-d-c4>b-<d-& d-d-d-cd-e-r4 r4g-g-g-4g-g- a-g-rd-4&(d-,e-)r4
+(t4)i127@48i0 o4 @u120L8r4e-d-c4>b-<d-& d-d-d-cd-e-r4 r4g-fg-4g-g- b-<d-re-4&(e-,d-)r4
+(t4)@4 @m o5 @u110L8r4d-e-g-a-rb-& b-a32b-16.b-4b-a-g-4 a-4g-e-2e-& e-g-a-g-g32a-16.b-r4L8r4<e-e-d32e-16.&e-4d-& d-&d-2>b-<d-e-& e-&e-2.b-& b-a-g32a-16.g-a-g-4e-&
+(t4)L8e-&e-2>b-<d-e-& e-&e-2>b-<d-d32e-16.& e-&e-4f32g-..e-d->b-& b-a-g-d32e-..d->b-<e-&  e-1& e-1& e-1& e-1
+
+(t5)@63 o4 q8 v6 @u90  @k12L8r4e-d-c4>b-<d-& d-d-d-cd-e-r4 r4g-g-g-4g-g- a-g-rd-4&(d-,e-)r4
+(t5)i127@48i0 o4 @u120L8r4e-d-c4>b-<d-& d-d-d-cd-e-r4 r4g-fg-4g-g- b-<d-re-4&(e-,d-)r4
+(t5)@4 @m o5 @u99 L8r4d-e-g-a-rb-& b-a32b-16.b-4b-a-g-4 a-4g-e-2e-& e-g-a-g-g32a-16.b-r4L8r4<e-e-d32e-16.&e-4d-& d-&d-2>b-<d-e-& e-&e-2.b-& b-a-g32a-16.g-a-g-4e-&
+(t5)L8e-&e-2>b-<d-e-& e-&e-2>b-<d-d32e-16.& e-&e-4f32g-..e-d->b-& b-a-g-d32e-..d->b-<e-&  e-1& e-1& e-1& e-1
+
+/drums
+(t7)   o2 q8 v16 @u99  L8c4r4ccr4 rcrcrcc4 c4r4ccrc rcr4rcr4
+(t8)   o2 q8     @u110 L8r4d4r4d4 r4d4r4d4 r4d4r4d4 r4d4r4d4
+(t9)   o2 q8     @u110 L8<c+*0>@u127|:12 r1 r2^d+d+r:|
+(t10)  o2 q8     @u40  L8f+f+f+f+f+f+f+f+ f+f+f+f+f+f+a+a+
+(t11)  o3 q8     @u70 L4g+
+
+(t1)[loop]
+(t2)[loop]
+(t3)[loop]
+(t4)[loop]
+(t5)[loop]
+(t7)[loop]
+(t8)[loop]
+(t9)[loop]
+(t10)[loop]
+(t11)[loop]
+(p)
