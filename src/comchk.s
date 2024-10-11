@@ -110,7 +110,7 @@ fopen:				*ファイルのオープン(環境変数参照モード)
 	pea.l	env_work(pc)
 	clr.l	-(sp)
 	pea	getname(pc)
-	DOS	_GETENV
+	DOS	_V2_GETENV
 	lea	12(sp),sp
 	tst.l	d0
 	bmi	exit_fopen
@@ -249,7 +249,7 @@ mes_prt:
 	rts
 
 work:
-title:		dc.b	$1b,'[35mCOMCHK.R',$1b,'[m version 2.00 (C) 1992 '
+title:		dc.b	$1b,'[35mCOMCHK.R',$1b,'[m version 1.00 (C) 1992 '
 		dc.b	$1b,'[36mZENJI SOFT',$1b,'[m',13,10,0
 help_mes:	dc.b	$1b,'[37m(使い方)',13,10
 		dc.b	$1b,'[m COMCHK <読み込みファイルネーム[.ZMD]>',13,10
