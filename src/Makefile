@@ -8,19 +8,21 @@ SRCDIR_MK = ../srcdir.mk
 SRC_DIR = ../src
 -include $(SRCDIR_MK)
 
-U8TOSJ = u8tosj
 AS = has060
 ASFLAGS = -w2 -c2 -i./include
 LD ?= hlk
 LDFLAGS =
 CV = cv
+LIB = lib
+LIBFLAGS =
 
 ifeq ($(findstring hlkx,$(LD)),hlkx)
 USE_HLKX = true
 endif
 
 TARGET = zmusic.x zmusic_rs.x zmusic_po.x zmsc.x zmsc_rs.x zmsc_po.x \
-	 musicz.fnc zp.r zpcnv.r zplk.r zvt.x comchk.r zmd18.r
+	 musicz.fnc zp.r zpcnv.r zplk.r zvt.x comchk.r zmd18.r \
+	 ZMUSIC.L
 
 ZM_UNIVERSAL = -stype=0 -smpu=30 -sdebug=0
 ZM_RSMIDI    = -stype=3 -smpu=0 -sdebug=0
@@ -31,7 +33,7 @@ ZMUSICX_SRCS = zmusic.s $(ZMUSIC_SRCS)
 ZMSCX_SRCS   = zmsc.s   $(ZMUSIC_SRCS)
 
 
-.PHONY: all archive
+.PHONY: all
 .PRECIOUS: %.o
 
 all: $(TARGET)
@@ -70,6 +72,15 @@ zmsc_po.o: $(ZMSCX_SRCS)
 
 musicz.o: musicz.s
 	$(AS) $(ASFLAGS) -sdbg=0 -o$@ $<
+
+ZMLIB.s: zmlib/zmlib.s
+	rm -f $@
+	cp $< $@
+
+ZMUSIC.L: ZMLIB.o
+	touch 199405211803.40 $^
+	$(LIB) $(LIBFLAGS) $@ $^
+	touch $^ $@
 
 
 # EOF
