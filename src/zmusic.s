@@ -3212,6 +3212,7 @@ wvfm2:				*波形メモリ登録(継続)
 	move.w	#$3a81,gip_wrt3_0-wv_loop_str(a5)	*move.w	d1,(A5)
 	move.w	#$32c1,gip_wrt3_1-wv_loop_str(a5)	*move.w	d1,(A1)+
 	move.w	#$3615,gip_wrt3_2-wv_loop_str(a5)	*move.w	(A5),d3
+	cache_flush
 	rts
 
 def_wave_form:			*波形メモリ登録
@@ -4480,7 +4481,8 @@ exit_i_mdbd:
 	rts
 
 rs_data:	dc.b	$09,$80,$04,$44,$01,$00,$03,$00
-		dc.b	$05,$00,$0b,$50,$0c,$03,$0d,$00
+		dc.b	$05,$00,$0b,$50,$0c
+rs_data_clock:	dc.b	                    $03,$0d,$00
 		dc.b	$0e,$02,$03,$c1,$05,$ea,$0e,$03
 		dc.b	$10,$30,$38,$09,$09
 rs_data_e:
@@ -4495,6 +4497,11 @@ init_midibd:
 	move.l	(sp)+,d0
 exit_i_mdbd:
 	rts
+	endif
+
+	if	type=3
+	.include	rsmidi_mbrs.s
+	.include	rsmidi_rate.s
 	endif
 
 int_stop:			*割り込みの停止(kill driver)
@@ -6245,6 +6252,7 @@ clc_ttl_end:
 	bsr	set_clc_patch1		*パッチ当て処理へ
 	bsr	set_clc_patch2
 	bsr	set_clc_patch3
+	cache_flush
 	st.b	trace_mode-work(a6)	*flag on
 clc_ttl_lp01:
 	lea	play_trk_tbl(pc),a0
@@ -6269,6 +6277,7 @@ chk_dead_tr:
 	bsr	back_patch		*パッチ復元処理
 	bsr	back_patch1
 	bsr	back_patch3
+	cache_flush
 
 	lea	play_trk_tbl(pc),a0
 	clr.b	trace_mode-play_trk_tbl(a0)	*flag off
@@ -8329,6 +8338,7 @@ ps_off:
 	tst.b	ps_flg-work(a6)
 	beq	ps_err
 	bsr	back_patch
+	cache_flush
 	clr.b	ps_flg-work(a6)
 	bra	t_dat_ok
 ps_err:
@@ -8761,9 +8771,11 @@ intercept_play:
 	tst.l	d2
 	bpl	@f
 	move.l	#BRA*65536+((tmf_1-m_play00-2).and.$ffff),m_play00-work(a6)
+	cache_flush
 	rts
 @@:
 	move.l	m_play00_bak(pc),m_play00-work(a6)
+	cache_flush
 	tst.l	d2
 	beq	m_play00
 	bra	t_dat_ok
@@ -9249,6 +9261,7 @@ t_err_73:	t_err	#73	*録音されてません
 t_err_74:	t_err	#74	*波形番号が異常
 t_err_76:	t_err	#76	*波形メモリ設定コマンドエラー
 t_dat_ok:	moveq.l	#0,d0	*正常終了
+		cache_flush
 		rts
 disp_t_err?:
 	bsr	set_err_code		*set error code
@@ -10982,7 +10995,7 @@ mml_frq:			*@F ADPCM周波数切り換え
 	bmi	@f
 	bsr	get_num
 	move.l	d0,d1
-	cmpi.l	#31,d1		*7以上はまーきゅりーユニット対応のため
+	cmpi.l	#127,d1		*7以上はまーきゅりーユニット対応のため
 	bhi	m_err80
 @@:
 	moveq.l	#$a9,d0
@@ -13110,6 +13123,10 @@ play_beep:				*BEEP音を鳴らす
 	move.w	(sp)+,sr
 	rts
 
+cache_flush_sub:
+	cache_flush
+	rts
+
 trans_dma:			*ＤＭＡ転送($ff00バイト以上も考慮)
 	* < d1=mode
 	* < d2=size
@@ -13128,6 +13145,7 @@ trans_dma:			*ＤＭＡ転送($ff00バイト以上も考慮)
 	andi.w	#%1100,d3
 	lsr.w	#1,d3
 	move.w	d3a2_op(pc,d3.w),(a0)+
+	bsr	cache_flush_sub
 	move.l	#$ff00,d3
 trans_dma_lp:
 	cmp.l	d3,d2
@@ -13142,6 +13160,7 @@ d3a2:	ds.w	1
 	sub.l	d3,d2
 	bne	trans_dma_lp
 bye_dma:
+	bsr	cache_flush_sub
 	movem.l	(sp)+,d0-d3/a0-a2
 exit_dt:
 	rts
@@ -13180,7 +13199,9 @@ di_lp01:
 	bsr	chk_dev
 
 	bsr	set_patch
+	cache_flush
 	bsr	non_cnv_patch
+	cache_flush
 	bsr	get_work_area
 	bne	resigned
 	bsr	set_vect		*拡張IOCSとしての登録
@@ -13188,6 +13209,7 @@ di_lp01:
 	move.l	dev_end_adr(pc),14(a5)	*本ドライバの終了アドレス
 	bsr	prt_bf_mes
 	bsr	init_all
+	cache_flush
 
 	tst.b	adpcm_read_flg-work(a6)
 	beq	@f
@@ -13243,7 +13265,9 @@ lop1:
 	bsr	chk_dev
 
 	bsr	set_patch
+	cache_flush
 	bsr	non_cnv_patch
+	cache_flush
 	bsr	get_work_area
 	movem.l	(sp)+,a4		*わざと
 	bne	resigned
@@ -13253,6 +13277,7 @@ lop1:
 	bsr	find_dev_name
 	bmi	unknown_err
 	bsr	init_all
+	cache_flush
 
 	tst.b	adpcm_read_flg-work(a6)
 	beq	@f
@@ -13511,6 +13536,10 @@ keep_mes:
 	version
 	dc.b	$1b,'[m (C) 1991,1992,1993,1994 '
 	dc.b	$1b,'[36mZENJI SOFT',$1b,'[m',13,10,0
+mzl_mes:dc.b	9,9,9,9,9
+	dc.b	$F3,'1',$F3,'9',$F3,'/',$F3,'M',$F3,'a',$F3,'r',$F3,'/',$F3,'2',$F3,'0',$F3,'0',$F3,'3'
+	dc.b	$F3,' ',$F3,'m',$F3,'o',$F3,'d',$F3,'i',$F3,'f',$F3,'i',$F3,'e',$F3,'d',$F3
+	dc.b	' ',$F3,'b',$F3,'y',$F3,' ',$F3,'M',$F3,'Z',$F3,'L',$F3,'.',13,10,0
 yes_midi:	dc.b	"MIDI/"
 no_midi:	dc.b	"FM･OPM/ADPCM are under the control of ZMUSIC.",13,10,0
 	if	type=3
@@ -13656,6 +13685,10 @@ sv_filename:
 		dc.b	'-S<filename> Include start-up file.',13,10
 		dc.b	'-T<n>	     Secure n kBytes for the MML track buffer.(default=128kB)',13,10
 		dc.b	'-W<n>	     Secure n kBytes for a work area.(default=12kB)',13,10
+	if	type=3
+		dc.b	'-Y<n>	     Set RS-MIDI bitrate generator value at n.(default=3)',13,10
+		dc.b	"	     (1 <= n <= 15 / '-Y0' calculates the value automatically.)",13,10
+	endif
 		dc.b	$1b,'[37m< NOTICE >',13,10
 		dc.b	"'-C' or '-Q' must be set in the last.",13,10
 		dc.b	$1b,'[m',0
@@ -13864,6 +13897,7 @@ ak_prt:
 chk_dev:				*スイッチ処理
 	* < cmd_or_dev  0:device / $ff:command
 chk_dev_lp:
+	cache_flush
 	move.b	(a4)+,d0
 	beq	no_more?
 	cmpi.b	#' ',d0
@@ -13931,6 +13965,10 @@ other_sw:			*その他のスイッチ
 	beq	get_wkbf
 	cmpi.b	#'X',d0		*EOX wait
 	beq	get_eoxw
+	if	type=3
+	cmpi.b	#'Y',d0		*RS-MIDI 時定数
+	beq	get_rsmidi
+	endif
 	bra	prt_help
 
 poly_mode:
@@ -14155,6 +14193,29 @@ get_eoxw:
 	move.w	d1,eox_w-work(a6)
 	bra	chk_dev_lp
 
+	if	type=3
+get_rsmidi:
+	moveq	#$7f,d4
+	jsr	asc_to_n-work(a6)
+	subq.w	#1,a4
+	tst.b	d1
+	bne	@f
+
+	jsr	set_rsmidi_rate-work(a6)
+	move.b	d1,rs_data_clock-work(a6)
+	bra	chk_dev_lp
+@@:
+	move.l	#13<<24+10<<16+0,rsmidi_mes2-work(a6)	;CR,LF,0
+	move.b	d1,rs_data_clock-work(a6)
+	add.b	#'0',d1
+	cmpi.b	#'9'+1,d1
+	bcs	@f
+	add.b	#'A'-'0',d1
+@@:
+	move.b	d1,rsmidi_mes1-work(a6)
+	bra	chk_dev_lp
+	endif
+
 get_bfsz:
 	moveq.l	#$7f,d4		*dummy(最高何桁の数字を取ってくるかみたいなもの)
 	jsr	asc_to_n-work(a6)
@@ -14230,11 +14291,13 @@ set_opmv:
 	IOCS	_B_INTVCS
 	move.l	d0,adpcm_stop_v-int_adpcm_stop(a1)
 	cmp.l	a2,d0
-	bcs	already_bye_
+	nop
+	nop
 
 	move.l	$88.w,d0
 	cmp.l	a2,d0
-	bcs	already_bye_
+	nop
+	nop
 	move.l	d0,dummy_vect-work(a6)
 	clr.l	$88.w
 
@@ -14265,6 +14328,13 @@ prt_title:				*タイトル表示
 	bsr	prt_zmt
 	lea.l	keep_mes(pc),a0
 	bsr	prta0
+
+	lea.l	mzl_mes(pc),a0
+	bsr	prta0
+	if	type=3
+	lea.l	rsmidi_mes-work(a6),a0
+	bsr	prta0
+	endif
 
 	moveq.l	#0,d0			*no problem
 	rts
@@ -14916,6 +14986,14 @@ go_user_bye:
 	move.l	ssp(pc),a1
 	IOCS	_B_SUPER	*ユーザーモードへ戻る
 
+	moveq.l	#$e0,d1
+	moveq.l	#-1,d2
+	moveq.l	#32-1,d3
+@@:
+	IOCS	_OPMSET
+	addq.l	#1,d1
+	dbra	d3,@b
+
 	DOS	_EXIT
 
 prt_zmt:
@@ -15208,6 +15286,7 @@ do_compile:
 	bsr	read_source	*ソースファイルのリード(a4=data address/d4=data size)
 	bsr	set_work_area	*ワークを設定
 	bsr	init_zmusic	*コンパイルするための準備
+	cache_flush
 
 	move.l	adpcm_work_end(pc),compile_p-work(a6)	*init compiled data pointer
 	move.l	#1,line_number-work(a6)			*init. line number
@@ -15219,9 +15298,11 @@ do_compile:
 	movem.l	d1-d7/a0-a6,-(sp)	*dev_out:のｼﾐｭﾚｰｼｮﾝ
 	lea	-512(sp),sp
 *	lea	work(pc),a6		*上で設定済み
+	cache_flush
 	jmp	dev_o_lop-work(a6)
 compile_end:				*コンパイルが終わるとここへ帰ってくる
 	* < d0.l=error code
+	cache_flush
 	move.l	d0,d1
 	bne	compile_error
 	tst.b	err_code-work(a6)	*コンパイル中にエラーを起こした

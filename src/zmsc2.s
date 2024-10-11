@@ -39,8 +39,13 @@ opmset:
 	rts
 
 chk_opm_wait:
+	bsr	wait_24
+	nop
 	tst.b	fm_data_port	*busy check
+	nop
 	bmi	chk_opm_wait
+	nop
+	bsr	wait_24
 	rts
 
 f7_wait:				*EOX後のウェイト
@@ -78,7 +83,9 @@ hsy_lp02:
 	if	mpu=30		*XVI24MHz/X68030対応用サブルーチン
 
 wait_24:
+	nop
 	tst.b	$e9a001		*ダミー
+	nop
 	rts
 
 	endif
@@ -1762,6 +1769,25 @@ int_cmd_tbl:						*コマンド群
 	dc.w	w_step_key-a				*$fe 2バイトのstep time使用の音階データ
 	dc.w	play_end-a				*$ff 演奏終了
 
+fade_all:
+	move.b	(a0)+,d2
+	lea	exit_mfo_,a1
+	tst.b	jump_flg2-exit_mfo_(a1)
+	bmi	next_cmd
+	btst.b	#5,p_seq_flag(a5)
+	bne	next_cmd
+	ext.w	d2
+	ext.l	d2
+	move.w	(a1),d0
+	move.w	#RTS,(a1)
+	cache_flush
+	movem.l	d0/a0-a1/a5,-(sp)
+	bsr	fo__
+	movem.l	(sp)+,d0/a0-a1/a5
+	move.w	d0,(a1)
+	cache_flush
+	bra	next_cmd
+
 play_end:			*演奏終了
 	* X d0 d1 a1 a2
 	move.b	jump_flg2(pc),d0	*d0に意味無し
@@ -1784,6 +1810,7 @@ play_end:			*演奏終了
 	btst.b	#5,p_seq_flag(a5)
 	beq	@f
 	bsr	back_patch		*jump mode on ならパッチを復元
+	cache_flush
 @@:
 	move.b	loop_chk(pc),d0		*d0に意味無し
 	bne	all_end?		*func $3b?
@@ -3182,6 +3209,7 @@ loop_ope:			*[loop]処理([do]へジャンプ)
 	btst.b	#5,p_seq_flag(a5)
 	beq	@f
 	bsr	back_patch	*[!]後始末
+	cache_flush
 @@:
 	move.b	p_do_loop_flag(a5),d1
 	beq	play_end	*[do]が省略の場合は演奏終了
@@ -3225,6 +3253,7 @@ jump_ope:			*次の[!]へ飛ぶ
 	move.l	#BRA*65536+((jump_plus2-noteoff_patch-2).and.$ffff),noteoff_patch-case_key_patch(a1)
 	move.l	#BRA*65536+((jump_plus1-len0_patch-2).and.$ffff),len0_patch-case_key_patch(a1)
 	move.l	#BRA*65536+((jump_plus1-opmd_y2_ope-2).and.$ffff),opmd_y2_ope-case_key_patch(a1)
+	cache_flush
 	bra	next_cmd
 
 jump2_plus1_:
@@ -3272,6 +3301,7 @@ jump_ope2:			*次の[@]へ飛ぶ
 	move.l	#BRA*65536+((jump2_plus1_-opmd_y2_ope-2).and.$ffff),opmd_y2_ope-jump_flg2(a1)
 
 	move.l	#BRA*65536+((reset_int_e-int_rte-2).and.$ffff),int_rte-jump_flg2(a1)
+	cache_flush
 	bra	next_cmd
 
 jump2_plus1:
@@ -3300,6 +3330,7 @@ reset_jump2:			*play_endからも参照
 	clr.b	(a1)			*make jump_flg2 clear
 	move.l	rte_src(pc),int_rte-jump_flg2(a1)	*ori.w
 	bsr	back_patch
+	cache_flush
 @@:
 	movem.l	(sp)+,d0/a1
 	rts
@@ -5366,23 +5397,6 @@ forceplay:			*Jコマンド
 	clr.b	p_not_empty(a1)
 	bra	next_cmd
 
-fade_all:
-	move.b	(a0)+,d2
-	lea	exit_mfo_(pc),a1
-	tst.b	jump_flg2-exit_mfo_(a1)
-	bmi	next_cmd
-	btst.b	#5,p_seq_flag(a5)
-	bne	next_cmd
-	ext.w	d2
-	ext.l	d2
-	move.w	(a1),d0
-	move.w	#RTS,(a1)
-	movem.l	d0/a0-a1/a5,-(sp)
-	bsr	fo__
-	movem.l	(sp)+,d0/a0-a1/a5
-	move.w	d0,(a1)
-	bra	next_cmd
-
 neiro_com:			*音色切り換え
 	move.b	d0,d5		*save command code
 	move.b	(a0)+,d0
@@ -5952,7 +5966,9 @@ adpcm_panst:
 	move.b	$e9a005,d0	*周波数やパンをゲット
 	andi.b	#%1111_0000,d0
 	or.b	d1,d0		*設定値を作成
+	cache_flush
 	move.b	#$88,CCR3-OCR3(a0)	*dma start
+	cache_flush
 	move.b	d0,$e9a005	*コントロールデータ送信
 	rts
 
@@ -6024,7 +6040,9 @@ int_adpcm_stop:			*ＡＤＰＣＭデータの再生が終了するとここへ�
 stop_quit:
 	move.b	#$10,CCR3	*dma stop
 	st	CSR3		*status clear
+	cache_flush
 	move.b	#$88,$e92003
+	cache_flush
 	moveq.l	#0,d0
 	move.b	d0,DMADSTAT.w
 	move.b	d0,se_mode-last_feff(a0)
