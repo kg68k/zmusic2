@@ -1,0 +1,257 @@
+	.nlist
+
+v_code:		equ	$20	*バージョンＩＤ
+v_code_:	equ	$08	*バージョンＩＤ端数
+
+version	macro
+	dc.b	' ',$f3,(v_code/16)+$30,$f3,'.',$f3,($0f.and.v_code)+$30,$f3,v_code_+$30
+*	dc.b	$f3,'+'
+	endm
+
+Z_MUSIC	macro	number
+	move.l	number,d1
+	bsr	Z_MUSIC
+	endm
+
+ZM	macro	number
+	move.l	number,d1
+	trap	#3
+	endm
+
+t_err	macro	no
+	move.l	no,d0
+	bra	disp_t_err?
+	endm
+
+m_err	macro	number
+	move.l	number,d0
+	bra	case_m_err
+	endm
+
+opmwait		macro			*24MHzに改造したXVIへ対応/X68030へ対応させる時
+	bsr	chk_opm_wait
+	endm
+
+opmset	macro	reg,data	*ＦＭ音源のレジスタ書き込み
+	opmwait
+	move.b	reg,fm_addr_port
+	opmwait
+	move.b	data,fm_data_port
+	endm
+
+opmset0	macro	reg		*ＦＭ音源のレジスタ書き込み(case:data=0)
+	opmwait
+	move.b	reg,fm_addr_port
+	opmwait
+	clr.b	fm_data_port
+	endm
+
+fmkey_off	macro	ch	*指定チャンネルをキーオフ
+	opmset	#8,ch
+	endm
+
+set_wn_p	macro
+	* < d4=アクセス対象チャンネル
+	* X d0 d1
+	* - d4
+	local	swp00
+	moveq.l	#0,d0
+	move.b	p_pgm(a5),d0
+	bmi	swp00
+	move.b	p_ch(a5),d1
+	move.b	d4,p_ch(a5)
+	bsr	pan_save_fmvset		*set 音色
+	move.b	d1,p_ch(a5)
+swp00:
+	endm
+
+	if	(type<>3.and.type<>4)
+
+	*MIDI ボードのアドレス
+rgr: 	equ	$eafa03
+isr: 	equ	$eafa05
+icr:	equ	$eafa07
+grp4: 	equ	icr+2
+grp5:	equ	grp4+2
+grp6: 	equ	grp5+2
+grp7:	equ	grp6+2
+
+rs232c:		equ	0	*ＭＩＤＩインターフェース
+
+midiwait	macro			*24MHzに改造したXVIへ対応/X68030へ対応させる時
+	if	mpu=30
+	bsr	wait_24
+	endif
+	endm
+
+midi	macro	data,r1,r2	*MIDIボード出力
+	move.b	r1,(a0)
+	midiwait
+	move.b	data,r2
+	midiwait
+	endm
+
+set_a3a4	macro
+	lea	rgr+6,a4
+	lea	4(a4),a3
+	move.b	#5,-6(a4)
+	midiwait
+	endm
+
+set_a3a4_	macro
+	lea	rgr+6,a4
+	lea	4(a4),a3
+	endm
+
+m_inp	macro	data		*MIDIデータ読み出し
+	local	inp_exit
+	move.b	#3,-6(a4)
+	midiwait
+	moveq.l	#-1,data
+	tst.b	(a4)
+	bpl	inp_exit
+	*midiwait
+	moveq.l	#0,data
+	move.b	(a3),data
+	*midiwait
+inp_exit:
+	endm
+
+m_out	macro	data		*MIDIデータ書き出し#1
+	local	out_lp
+	move.b	#5,-6(a4)
+	midiwait
+out_lp:
+	btst.b	#6,(a4)
+	beq	out_lp
+	*midiwait
+	move.b	data,(a3)
+	midiwait
+	endm
+
+m_out_	macro	data		*MIDIデータ書き出し#2
+	local	out_lp
+out_lp:
+	btst.b	#6,(a4)
+	beq	out_lp
+	*midiwait
+	move.b	data,(a3)
+	midiwait
+	endm
+
+m_out0	macro			*MIDIデータ書き出し(case:data=0)
+	local	out_lp
+out_lp:
+	btst.b	#6,(a4)
+	beq	out_lp
+	*midiwait
+	clr.b	(a3)
+	midiwait
+	endm
+
+	elseif	type=3
+
+rs232c:		equ	-1	*ＲＳ２３２Ｃ－ＭＩＤＩ
+set_a3a4	macro
+	lea	$e98005,a3
+	lea	2(a3),a4
+	endm
+
+set_a3a4_	macro
+	lea	$e98005,a3
+	lea	2(a3),a4
+	endm
+
+m_inp	macro	data		*RS-MIDIデータ読み出し
+	local	inp_exit
+	moveq.l	#-1,data
+	btst.b	#0,(a3)
+	beq	inp_exit
+	moveq.l	#0,data
+	move.b	(a4),data
+inp_exit:
+	endm
+
+m_out	macro	data		*RS-MIDIデータ書き出し#1
+	local	out_lp
+out_lp:
+	btst.b	#2,(a3)
+	beq	out_lp
+	move.b	data,(a4)
+	endm
+
+m_out_	macro	data		*RS-MIDIデータ書き出し#2
+	local	out_lp
+out_lp:
+	btst.b	#2,(a3)
+	beq	out_lp
+	move.b	data,(a4)
+	endm
+
+m_out0	macro			*RS-MIDIデータ書き出し#3
+	local	out_lp
+out_lp:
+	btst.b	#2,(a3)
+	beq	out_lp
+	clr.b	(a4)
+	endm
+
+	endif
+
+	if	type=4		*POLYPHON
+
+rs232c:		equ	1	*ポリフォンＭＩＤＩ
+set_a3a4	macro
+	lea	polyphon_buff(pc),a3
+	lea	polyphon_midi_out(pc),a4
+	endm
+
+set_a3a4_	macro
+	lea	polyphon_buff(pc),a3
+	lea	polyphon_midi_out(pc),a4
+	endm
+
+m_inp	macro	data		*POLYPHON-MIDIデータ読み出し
+	local	inp_exit
+	moveq.l	#-1,data
+	bsr	polyphon_midi_in
+	bmi	inp_exit
+	moveq.l	#0,data
+	move.b	(a3),data
+inp_exit:
+	endm
+
+m_out	macro	data		*POLYPHON-MIDIデータ書き出し#1
+	move.b	data,(a3)
+	jsr	(a4)
+	endm
+
+m_out_	macro	data		*POLYPHON-MIDIデータ書き出し#2
+	move.b	data,(a3)
+	jsr	(a4)
+	endm
+
+m_out0	macro			*POLYPHON-MIDIデータ書き出し#3
+	clr.b	(a3)
+	jsr	(a4)
+	endm
+
+	endif
+
+	if	mpu=30
+ver_type:	equ	$00		*UNIVERSAL VERSION
+	endif
+
+	if	(mpu=0.and.rs232c=0)
+ver_type:	equ	$10		*16bit VERSION
+	endif
+
+	if	rs232c=-1
+ver_type:	equ	$20		*RS232C MIDI
+	endif
+
+	if	rs232c=1
+ver_type:	equ	$30		*POLYPHON MIDI
+	endif
+
+	.list
