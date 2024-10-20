@@ -279,7 +279,7 @@ m_out0	macro			*POLYPHON-MIDIデータ書き出し#3
 
 	endif
 
-	if	mpu=30
+	if	(mpu=30.and.rs232c=0)
 ver_type:	equ	$00		*UNIVERSAL VERSION
 	endif
 

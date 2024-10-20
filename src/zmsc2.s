@@ -5821,17 +5821,7 @@ DMADSTAT:	equ	$c32
 OPMCTRL:	equ	$9da
 *	以下'XAPNEL.X'のルーチンの流用です
 
-CPUSH:	.macro	op
-	cmpi.b	#4,($cbc)
-	bcs	@skip
-	.cpu	68040
-	op
-	.cpu	68000
-@skip:
-	.endm
-
 adpcmout:			*IOCS	$60
-**	CPUSH	<cpusha dc>
 	move.w	sr,-(sp)
 	ori.w	#$0700,sr
 	movem.l	d1-d2/a0-a2,-(sp)
@@ -5880,7 +5870,6 @@ adpcm_sgl:
 	move.l	a2,BAR3-OCR3(a0)	*アレイテーブルのアドレス
 	move.l	a1,next_at-aray_tbl(a2)
 	move.w	d2,next_at+4-aray_tbl(a2)
-	CPUSH	<cpushl dc,(a2)>
 	bsr	adpcm_dtst
 	move.b	#$02,$e92001
 	moveq.l	#0,d0
@@ -5997,7 +5986,6 @@ stop_quit:
 adpcm_stop_v:	ds.l	1
 adpcmout_v:	ds.l	1
 adpcmmod_v:	ds.l	1
-	.align	16
 aray_tbl:
 	dc.l	dummy_data
 	dc.w	num_of_80

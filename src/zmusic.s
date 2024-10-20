@@ -1798,7 +1798,6 @@ so_read:
 
 so_ope:
 	move.w	#$7400,case_child-work(a6)
-	bsr	cache_flush
 
 	move.w	#%0_000_01,-(sp)	*自分自身へ出力しちゃう
 	move.l	out_name(pc),-(sp)
@@ -1816,8 +1815,7 @@ so_ope:
 	bsr	do_fclose
 
 	move.w	#NOP,case_child-work(a6)
-	bra	cache_flush
-**	rts
+	rts
 
 get_fsize:			*ファイルサイズの偶数調整なし
 	* < d5.w=file handle
@@ -3508,7 +3506,6 @@ case_c_i0:
 	move.l	adpcm_work_top(pc),adpcm_work_now-work(a6)
 	st.b	adpb_clr-work(a6)
 	move.w	#NOP,se_ope-work(a6)			*ALL ENABLEのケース
-	bsr	cache_flush
 
 case_c_i1:				*cp!!(コンパイルモード時の初期化はここまで)
 	bsr	init_play_trk_tbl	*演奏トラックテーブル初期化
@@ -4456,7 +4453,10 @@ exit_i_mdbd:
 	rts
 
 rs_data:	dc.b	$09,$80,$04,$44,$01,$00,$03,$00
-		dc.b	$05,$00,$0b,$50,$0c,$03,$0d,$00
+		dc.b	$05,$00,$0b,$50
+		dc.b	$0c
+bps_v:		dc.b	$04				* SCC時定数値
+		dc.b				$0d,$00
 		dc.b	$0e,$02,$03,$c1,$05,$ea,$0e,$03
 		dc.b	$10,$30,$38,$09,$09
 rs_data_e:
@@ -5261,7 +5261,6 @@ play_cnv_data:			*コンパイルデータの演奏
 	move.l	adpcm_work_top(pc),adpcm_work_now-work(a6)
 	st.b	adpb_clr-work(a6)
 	move.w	#NOP,se_ope-work(a6)		*ALL ENABLEのケース
-	bsr	cache_flush
 	move.l	#$0403_0000,frq-work(a6)	*frq,pan,noise_mode,first_cmt
 						*noise mode off(レジスタ書き込みは
 						*必要であればinit_instで行なわれる)
@@ -6358,8 +6357,7 @@ b_up:	dc.b	VT,0
 set_clc_patch1:			*レジスタ破壊禁止	*パッチ当て処理その1
 	move.w	#BRA+(goto_ple.and.$ff),loop_ope-work(a6)
 	move.w	#BRA+(goto_m_int_lp.and.$ff),se_ope-work(a6)
-	bra	cache_flush
-**	rts
+	rts
 
 set_clc_patch2:			*レジスタ破壊禁止	*パッチ当て処理その2
 	move.l	d0,-(sp)
@@ -6371,8 +6369,7 @@ set_clc_patch2:			*レジスタ破壊禁止	*パッチ当て処理その2
 	move.l	d0,port_patch-work(a6)
 	move.l	d0,waon_patch-work(a6)
 	move.l	(sp)+,d0
-	bra	cache_flush
-**	rts
+	rts
 
 set_clc_patch3:			*レジスタ破壊禁止	*パッチ当て処理その3
 	pea	(a1)
@@ -6385,8 +6382,7 @@ set_clc_patch3:			*レジスタ破壊禁止	*パッチ当て処理その3
 	move.l	wrt_tmp(pc),(a1)+
 	move.l	#BRA*65536+((next_cmd-wrt_tmp-2).and.$ffff),wrt_tmp-work(a6)
 	move.l	(sp)+,a1
-	bra	cache_flush
-**	rts
+	rts
 
 back_patch:
 	movem.l	d0/a0,-(sp)
@@ -6403,8 +6399,7 @@ back_patch:
 	move.l	d0,len0_patch-w_com_patch(a0)
 	move.l	d0,opmd_y2_ope-w_com_patch(a0)
 	movem.l	(sp)+,d0/a0
-	bra	cache_flush
-**	rts
+	rts
 
 back_patch1:
 	move.l	d0,-(sp)
@@ -6412,8 +6407,7 @@ back_patch1:
 	move.w	d0,se_ope-work(a6)
 	move.l	d0,loop_ope-work(a6)		*当てたパッチを戻す
 	move.l	(sp)+,d0
-	bra	cache_flush
-**	rts
+	rts
 
 back_patch3:
 	pea	(a1)
@@ -6423,8 +6417,7 @@ back_patch3:
 	move.l	(a1)+,dec_gate-work(a6)
 	move.l	(a1)+,wrt_tmp-work(a6)
 	move.l	(sp)+,a1
-	bra	cache_flush
-**	rts
+	rts
 
 fade_out:			*ﾌｪｰﾄﾞｱｳﾄ/ｲﾝ処理
 	*   cmd=$1a
@@ -8401,7 +8394,6 @@ mask_channels:
 	st.b	ch_tr_msk-work(a6)
 @@:
 	move.w	d0,se_ope-work(a6)
-	bsr	cache_flush
 	moveq.l	#ch_max-1,d5
 mskc_lp00:
 	lea	play_trk_tbl(pc),a0
@@ -8661,7 +8653,6 @@ all_tr_en:				*全解除
 	lea	wk_size(a5),a5
 	dbra	d1,@b
 	move.w	#NOP,se_ope-work(a6)	*ALL ENABLEのケース
-	bsr	cache_flush
 	bra	t_dat_ok
 chk_all_en?:
 	lea	play_trk_tbl(pc),a1
@@ -8675,11 +8666,9 @@ chk_all_en?:
 	dbra	d1,@b
 @@:
 	move.w	#NOP,se_ope-work(a6)	*ALL ENABLEのケース
-	bsr	cache_flush
 	bra	t_dat_ok
 cae1:						*１チャンネルでもマスクする場合
 	move.w	#BRA+(goto_m_int_lp.and.$ff),se_ope-work(a6)
-	bsr	cache_flush
 	bra	t_dat_ok
 
 set_output_level2:		*各トラックの出力レベルの設定
@@ -8814,11 +8803,9 @@ intercept_play:
 	tst.l	d2
 	bpl	@f
 	move.l	#BRA*65536+((tmf_1-m_play00-2).and.$ffff),m_play00-work(a6)
-	bra	cache_flush
-**	rts
+	rts
 @@:
 	move.l	m_play00_bak(pc),m_play00-work(a6)
-	bsr	cache_flush
 	tst.l	d2
 	beq	m_play00
 	bra	t_dat_ok
@@ -9276,20 +9263,6 @@ do_fclose:
 	DOS	_CLOSE
 	addq.w	#2,sp
 	rts
-
-cache_flush:
-		cmpi.b	#2,($cbc)
-		bcs	cache_flush_end
-		move.l	d1,-(sp)
-		move.l	d0,-(sp)
-		moveq	#3,d1
-		.cpu	68020
-		jsr	([$400+_SYS_STAT*4])
-		.cpu	68000
-		move.l	(sp)+,d0
-		move.l	(sp)+,d1
-cache_flush_end:
-		rts
 
 *----------------------------------------
 	*t_系のコマンドのエラーは
@@ -13469,7 +13442,6 @@ init_all:			*ドライバの初期化
 	move.w	#RTS,d0
 	move.w	d0,init_inst-work(a6)
 	move.w	d0,init_midi-work(a6)
-	bsr	cache_flush
 @@:
 	bsr	init_midibd
 	moveq.l	#0,d0
@@ -13578,15 +13550,22 @@ keep_mes:
 	DCF3B	'.'
 	DCF3B	'0'+(v_code.and.$f)
 	DCF3B	'0'+(v_code_)
+	.if	type=3
+		DCF3B_S	'+01'
+	.endif
 	ESCseq	'[m'
 
 	.dc.b	' (C)1991,1992,1993,1994 '
 	ESCseq	'[36m'
 	.dc.b	'ZENJI SOFT'
 	ESCseq	'[m'
-	.dc.b	' ,1997/03/02 '
+	.dc.b	' , '
 	ESCseq	'[36m'
 	.dc.b	'立花えり子'
+	ESCseq	'[m'
+	.dc.b	' , '
+	ESCseq	'[36m'
+	.dc.b	'鷹之人'
 	ESCseq	'[m'
 	.dc.b	'.'
 
@@ -14084,6 +14063,10 @@ other_sw:			*その他のスイッチ
 	beq	get_wkbf
 	cmpi.b	#'X',d0		*EOX wait
 	beq	get_eoxw
+	.if	type=3
+		cmpi.b	#'Y',d0
+		beq	set_rs232c_bpsv	*RS232C SCC 時定数設定
+	.endif
 	bra	prt_help
 
 poly_mode:
@@ -14091,7 +14074,6 @@ poly_mode:
 	move.w	d2,poly_ch-work(a6)
 	move.w	#BRA+((poly_play-poly_-2).and.$ff),poly_-work(a6)
 	move.w	#RTS,PCM8KOFF-work(a6)
-	bsr	cache_flush
 *	move.l	#adpcm_n_max_default,adpcm_n_max-work(a6)
 	moveq.l	#$7f,d4
 	jsr	chk_num-work(a6)
@@ -14108,7 +14090,6 @@ poly_mode:
 slow_init:
 	move.l	#BSR*65536+((f7_wait-inmd0-2).and.$ffff),inmd0-work(a6)
 	move.l	#BSR*65536+((f7_wait-inmd1-2).and.$ffff),inmd1-work(a6)
-	bsr	cache_flush
 	bra	chk_dev_lp
 
 no_init:
@@ -14302,6 +14283,21 @@ get_wkbf:
 @@:
 	move.l	d1,adpcm_work_size-work(a6)
 	bra	chk_dev_lp
+
+	.if	type=3
+	set_rs232c_bpsv:
+		moveq.l	#$7f,d4
+		jsr	skip_spc-work(a6)
+		jsr	chk_num-work(a6)
+		bmi	prt_help
+		cmpi.b	#'-',(a4)
+		beq	prt_help
+		jsr	asc_to_n-work(a6)
+		subq.w	#1,a4
+		andi.b	#$0F,d1
+		move.b	d1,bps_v-work(a6)
+		bra	chk_dev_lp
+	.endif
 
 get_eoxw:
 	moveq.l	#$7f,d4
@@ -14607,7 +14603,6 @@ set_patch:			*-a,-e,-i,-m スイッチ処理
 	bne	@f
 	move.w	#BRA+((sr_restore_e-sr_restore-2).and.$ff),sr_restore-work(a6)
 	move.w	#RTE,int_rte-work(a6)
-	bsr	cache_flush
 *	bra	set_tm_patch		*!2.04
 @@:
 	lea	copy_key(pc),a0
@@ -14635,7 +14630,6 @@ set_tm_patch:
 	move.l	#BRA*65536+((t_dat_ok-m_cont_patch-2).and.$ffff),m_cont_patch-work(a6)
 	move.l	#BRA*65536+((next_cmd-_@t_midi_clk-2).and.$ffff),_@t_midi_clk-work(a6)
 @@:
-	bsr	cache_flush
 	bsr	pcm8_patch
 	movem.l	(sp)+,d0/a0-a1
 	rts
@@ -14677,8 +14671,7 @@ do_ncp:
 	bra	@b
 exit_ncp:
 	movem.l	(sp)+,d0-d1/a0
-	bra	cache_flush
-**	rts
+	rts
 
 *	dc.w	書き換えアドレス先アドレス-work,ジャンプ先アドレス-書き換え先アドレス-2
 ncp_tbl:
@@ -15564,7 +15557,6 @@ exit_dosv:			*コンパイルデータのセーブ
 	bsr	prta1
 
 	move.l	#NOP_NOP,wrt_tmp-work(a6)
-	bsr	cache_flush
 	moveq	#$19,d1
 	moveq.l	#0,d2
 	jsr	Z_MUSIC-work(a6)
