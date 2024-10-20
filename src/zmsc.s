@@ -555,7 +555,7 @@ exit_fopen:
 search_env:
 	movem.l	a0-a1,-(sp)
 rwff1:
-	DOS	_V2_GETPDB
+	DOS	_GETPDB
 	move.l	d0,a1		*環境変数文字列群
 	move.l	(a1),a1
 	addq.w	#4,a1
@@ -3092,7 +3092,7 @@ get_filedate:
 	clr.l	-(sp)
 	move.w	d5,-(sp)
 rwff3:
-	DOS	_V2_FILEDATE
+	DOS	_FILEDATE
 	addq.w	#6,sp
 	rts
 
@@ -6943,7 +6943,10 @@ keep_mes:
 	dc.b	$F3,'P',$F3,'O',$F3,'L',$F3,'Y',$F3,'P',$F3,'H',$F3,'O',$F3,'N '
 	endif
 	dc.b	$F3,'V',$F3,'E',$F3,'R',$F3,'S',$F3,'I',$F3,'O',$F3,'N'
-	version
+	DCF3B	'0'+(v_code>>4)
+	DCF3B	'.'
+	DCF3B	'0'+(v_code.and.$f)
+	DCF3B	'0'+(v_code_)
 	dc.b	$1b,'[m (C) 1992,1993,1994 '
 	dc.b	$1b,'[36mZENJI SOFT',$1b,'[m',13,10,0
 yes_midi:	dc.b	"MIDI/"

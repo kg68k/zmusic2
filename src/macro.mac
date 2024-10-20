@@ -1,12 +1,53 @@
 	.nlist
 
-v_code:		equ	$20	*バージョンＩＤ
-v_code_:	equ	$08	*バージョンＩＤ端数
+v_code:		.equ	$20	*バージョンＩＤ
+v_code_:	.equ	$09	*バージョンＩＤ端数
 
-version	macro
-	dc.b	' ',$f3,(v_code/16)+$30,$f3,'.',$f3,($0f.and.v_code)+$30,$f3,v_code_+$30
-*	dc.b	$f3,'+'
-	endm
+DCF3B:		.macro	char
+		.dc.b	$f3,char
+		.endm
+
+DCF3B_S:	.macro	str
+	.irpc	char,str
+		.dc.b	$f3,'&char'
+	.endm
+		.endm
+
+MOVEW:		.macro	s,d
+		move.b	s,-(sp)		;move.b	s,d
+		move	(sp)+,d		;lsl	#8,d
+		move.b	s,d		;move.b	s,d
+		.endm
+MOVEW2:		.macro	s1,s2,d
+		move.b	s1,-(sp)	;move.b	s1,d
+		move	(sp)+,d		;lsl	#8,d
+		move.b	s2,d		;move.b	s2,d
+		.endm
+
+*	.ifdef	__X68030__
+*MOVEW:		.macro	s,d
+*		move	s,d
+*		.endm
+*MOVEW2:	.macro	s1,s2,d
+*		move	s1,d
+*		move.b	s2,d
+*		.endm
+*	.endif
+
+
+;制御記号
+TAB:		.equ	$09
+LF:		.equ	$0a
+VT:		.equ	$0b
+CR:		.equ	$0d
+EOF:		.equ	$1a
+ESC:		.equ	$1b
+
+ESCseq:		.macro	str
+	.ifdef	__USE_ESC_SEQUENCE__
+		.dc.b	ESC,str
+	.endif
+		.endm
 
 Z_MUSIC	macro	number
 	move.l	number,d1

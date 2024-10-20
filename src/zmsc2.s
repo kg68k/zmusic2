@@ -607,9 +607,7 @@ pmod_wvmm:
 	tst.b	p_altp_flg(a5)
 	bne	alternative_ope
 	move.l	p_wvpm_point(a5),a1
-	move.b	(a1)+,d1
-	lsl.w	#8,d1
-	move.b	(a1)+,d1
+	MOVEW	(a1)+,d1
 	tst.b	p_pmod_sw(a5)
 	bpl	@f
 	neg.w	d1
@@ -846,9 +844,7 @@ amod_wvmm:
 	tst.b	p_alta_flg(a5)
 	bne	alternative_ope_a
 	move.l	p_wvam_point(a5),a1
-	move.b	(a1)+,d6
-	lsl.w	#8,d6
-	move.b	(a1)+,d6
+	MOVEW	(a1)+,d6
 	tst.b	p_amod_sw(a5)
 	bpl	@f
 	neg.w	d6
@@ -1848,9 +1844,7 @@ gyakusan_tm_a:
 rltv_@t_p:
 	lea	timer_value(pc),a1
 	move.w	(a1),d1
-	move.b	(a0)+,d0
-	lsl.w	#8,d0
-	move.b	(a0)+,d0
+	MOVEW	(a0)+,d0
 	add.w	d0,d1
 	move.w	#$3ff,d0
 	tst.b	timer_a_mode-timer_value(a1)
@@ -1867,9 +1861,7 @@ rltv_@t_p:
 rltv_@t_m:
 	lea	timer_value(pc),a1
 	move.w	(a1),d1
-	move.b	(a0)+,d0
-	lsl.w	#8,d0
-	move.b	(a0)+,d0
+	MOVEW	(a0)+,d0
 	sub.w	d0,d1
 	bcc	@f
 	moveq.l	#0,d1
@@ -1890,9 +1882,7 @@ go_calctm:
 rltv_t_p:
 	lea	m_tmp_buf(pc),a1
 	move.w	(a1),d1
-	move.b	(a0)+,d0
-	lsl.w	#8,d0
-	move.b	(a0)+,d0
+	MOVEW	(a0)+,d0
 	add.w	d0,d1
 	move.w	#tempo_max,d0
 	cmp.w	d0,d1
@@ -1905,9 +1895,7 @@ rltv_t_p:
 rltv_t_m:
 	lea	m_tmp_buf(pc),a1
 	move.w	(a1),d1
-	move.b	(a0)+,d0
-	lsl.w	#8,d0
-	move.b	(a0)+,d0
+	MOVEW	(a0)+,d0
 	sub.w	d0,d1
 	moveq.l	#20,d0
 	tst.b	timer_a_mode-m_tmp_buf(a1)
@@ -3319,9 +3307,7 @@ inc_rep_cnt:			*リピートカウンタ処理
 
 repeat_end:			*:|処理
 *	moveq.l	#0,d0
-	move.b	(a0)+,d0
-	lsl.w	#8,d0
-	move.b	(a0)+,d0	*d0.w=offset value
+	MOVEW	(a0)+,d0	*d0.w=offset value
 	move.l	a0,d2		*save a0 to d2
 	suba.l	d0,a0		*offsetを引く
 	bsr	pop_rep_cnt	*>d0=rep_cnt,a1=rep_work,d1.b=number of work seq.
@@ -3341,9 +3327,7 @@ repeat_skip:			*|n処理
 	bra	next_cmd
 skip_to_next:
 	moveq.l	#0,d0		*!2.03
-	move.b	(a0)+,d0
-	lsl.w	#8,d0
-	move.b	(a0)+,d0	*d0=offset
+	MOVEW	(a0)+,d0	*d0=offset
 	adda.l	d0,a0		*オフセットを足して飛ぶ
 	bra	next_cmd
 
@@ -3359,9 +3343,7 @@ skip_to_next2:			*最後のリピートケース
 	moveq.l	#0,d0
 	move.b	d0,(a1)
 	bclr.b	d1,p_rpt_last?(a5)
-	move.b	(a0)+,d0
-	lsl.w	#8,d0
-	move.b	(a0)+,d0	*d0=offset
+	MOVEW	(a0)+,d0	*d0=offset
 	adda.l	d0,a0		*オフセットを足して飛ぶ
 	bra	next_cmd
 
@@ -3656,18 +3638,14 @@ midi_volume:
 *	bra	next_cmd
 
 rltv_@b_up:
-	move.b	(a0)+,d0
-	lsl.w	#8,d0
-	move.b	(a0)+,d0
+	MOVEW	(a0)+,d0
 	add.w	d0,p_detune_f(a5)
 	move.w	#7680,d1
 	cmp.w	p_detune_f(a5),d1
 	bge	@f
 	move.w	d1,p_detune_f(a5)
 @@:
-*	move.b	(a0)+,d0
-*	lsl.w	#8,d0
-*	move.b	(a0)+,d0
+*	MOVEW	(a0)+,d0
 	add.w	d0,p_detune_m(a5)
 	move.w	#8191,d1
 	cmp.w	p_detune_m(a5),d1
@@ -3676,18 +3654,14 @@ rltv_@b_up:
 	bra	det0
 
 rltv_@b_dwn:
-	move.b	(a0)+,d0
-	lsl.w	#8,d0
-	move.b	(a0)+,d0
+	MOVEW	(a0)+,d0
 	sub.w	d0,p_detune_f(a5)
 	move.w	#-7680,d1
 	cmp.w	p_detune_f(a5),d1
 	ble	@f
 	move.w	d1,p_detune_f(a5)
 @@:
-*	move.b	(a0)+,d0
-*	lsl.w	#8,d0
-*	move.b	(a0)+,d0
+*	MOVEW	(a0)+,d0
 	sub.w	d0,p_detune_m(a5)
 	move.w	#-8192,d1
 	cmp.w	p_detune_m(a5),d1
@@ -4436,17 +4410,13 @@ bend:				*オートベンド
 
 skip_zmd:				*スキップコマンド1
 *	moveq.l	#0,d0
-	move.b	(a0)+,d0
-	lsl.w	#8,d0
-	move.b	(a0)+,d0
+	MOVEW	(a0)+,d0
 	adda.l	d0,a0
 	bra	next_cmd
 
 skip_zmd2:				*スキップコマンド2
 *	moveq.l	#0,d0
-	move.b	(a0)+,d0
-	lsl.w	#8,d0
-	move.b	(a0)+,d0
+	MOVEW	(a0)+,d0
 	suba.l	d0,a0
 	bra	next_cmd
 
@@ -4639,9 +4609,7 @@ modulation8:				*MIDI/FM 1/8 ピッチモジュレーション
 	lea	p_pmod_tbl(a5),a1
 	moveq.l	#8-1,d2
 @@:
-	move.b	(a0)+,d1
-	lsl.w	#8,d1
-	move.b	(a0)+,d1
+	MOVEW	(a0)+,d1
 	bsr	reduce_@mv
 	move.w	d1,(a1)+
 	dbra	d2,@b
@@ -4665,25 +4633,19 @@ arcc_amod8:				*MIDI ARCC/FM AMD 1/8
 	bra	next_cmd
 
 delay:				*モジュレーションディレイ設定
-	move.b	(a0)+,d0
-	lsl.w	#8,d0
-	move.b	(a0)+,d0
+	MOVEW	(a0)+,d0
 	cmpi.w	#-1,d0
 	beq	@f
 	move.w	d0,p_pmod_dly(a5)
 @@:
-	move.b	(a0)+,d0
-	lsl.w	#8,d0
-	move.b	(a0)+,d0
+	MOVEW	(a0)+,d0
 	cmpi.w	#-1,d0
 	beq	next_cmd
 	move.w	d0,p_arcc_dly(a5)
 	bra	next_cmd
 
 speed:				*モジュレーションスピード設定
-	move.b	(a0)+,d0
-	lsl.w	#8,d0
-	move.b	(a0)+,d0
+	MOVEW	(a0)+,d0
 	add.w	d0,d0		*2倍にする
 	beq	@f
 	move.w	d0,p_pmod_spd(a5)
@@ -4693,9 +4655,7 @@ speed:				*モジュレーションスピード設定
 		tst.w	p_gate_time(a5)		*!2.05
 		sne	p_tie_pmod(a5)		*!2.05
 @@:
-	move.b	(a0)+,d0
-	lsl.w	#8,d0
-	move.b	(a0)+,d0
+	MOVEW	(a0)+,d0
 	add.w	d0,d0		*2倍にする
 	beq	next_cmd
 	move.w	d0,p_amod_spd(a5)
@@ -4779,9 +4739,7 @@ ndc1:
 soft_pmd:			*ﾋﾟｯﾁﾓｼﾞｭﾚｰｼｮﾝのﾃﾞﾌﾟｽ設定
 	tst.w	p_gate_time(a5)
 	sne	p_tie_pmod(a5)
-	move.b	(a0)+,d1
-	lsl.w	#8,d1
-	move.b	(a0)+,d1
+	MOVEW	(a0)+,d1
 	bsr	reduce_@mv
 @@:
 	move.w	d1,p_pmod_tbl(a5)
@@ -5117,9 +5075,7 @@ ID_set:				*ID SET
 send_data:			*生MIDIデータ転送
 	move.b	trace_mode(pc),d0	*d0に意味無し
 	bne	send_data__
-	move.b	(a0)+,d4
-	lsl.w	#8,d4
-	move.b	(a0)+,d4	*d4=number of data
+	MOVEW	(a0)+,d4	*d4=number of data
 	bsr	m_outa0		*send first data
 	subq.w	#1,d4
 	beq	next_cmd
@@ -5129,9 +5085,7 @@ senddt_lp:
 	dbra	d4,senddt_lp
 	bra	next_cmd
 send_data__:			*func$19のケース
-	move.b	(a0)+,d0
-	lsl.w	#8,d0
-	move.b	(a0)+,d0	*d4=number of data
+	MOVEW	(a0)+,d0	*d4=number of data
 	add.w	d0,a0
 	bra	next_cmd
 
@@ -5760,9 +5714,7 @@ opmd_y2_ope:			*OPMDのＹコマンドエミュレーション
 	nop			*[@]でpatchがあたる
 	nop
 *	moveq.l	#0,d0
-	move.b	(a0)+,d0	*note number
-	lsl.w	#8,d0
-	move.b	(a0)+,d0
+	MOVEW	(a0)+,d0	*note number
 	tst.b	p_fo_mode(a5)
 	bne	next_cmd
 	tst.b	p_se_mode(a5)
@@ -5869,7 +5821,17 @@ DMADSTAT:	equ	$c32
 OPMCTRL:	equ	$9da
 *	以下'XAPNEL.X'のルーチンの流用です
 
+CPUSH:	.macro	op
+	cmpi.b	#4,($cbc)
+	bcs	@skip
+	.cpu	68040
+	op
+	.cpu	68000
+@skip:
+	.endm
+
 adpcmout:			*IOCS	$60
+**	CPUSH	<cpusha dc>
 	move.w	sr,-(sp)
 	ori.w	#$0700,sr
 	movem.l	d1-d2/a0-a2,-(sp)
@@ -5918,6 +5880,7 @@ adpcm_sgl:
 	move.l	a2,BAR3-OCR3(a0)	*アレイテーブルのアドレス
 	move.l	a1,next_at-aray_tbl(a2)
 	move.w	d2,next_at+4-aray_tbl(a2)
+	CPUSH	<cpushl dc,(a2)>
 	bsr	adpcm_dtst
 	move.b	#$02,$e92001
 	moveq.l	#0,d0
@@ -6034,6 +5997,7 @@ stop_quit:
 adpcm_stop_v:	ds.l	1
 adpcmout_v:	ds.l	1
 adpcmmod_v:	ds.l	1
+	.align	16
 aray_tbl:
 	dc.l	dummy_data
 	dc.w	num_of_80

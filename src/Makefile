@@ -9,7 +9,7 @@ SRC_DIR = ../src
 -include $(SRCDIR_MK)
 
 AS = has060
-ASFLAGS = -w2 -c2 -i./include
+ASFLAGS = -w2 -c3 -i./include
 LD ?= hlk
 LDFLAGS =
 CV = cv

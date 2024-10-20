@@ -3,6 +3,9 @@
 西川善司氏の作成されたZMUSIC SYSTEM Ver.2.0系のソースコードです。  
 改造版をブランチにコミットします。
 
+`eriko`ブランチはTcbnErikによりMPUキャッシュ対策を加えた改造版Ver.2.09です(配布はzmusic.xのみ)。
+ビルドしやすいように公開当時のソースコードを若干修正しています。
+
 PCやネット上で扱いやすくするために、このリポジトリ内のテキストファイルは以下の変更がされています。
 * 文字コードをUTF-8に変更。
 * 改行をLFに変更。
@@ -81,6 +84,7 @@ LzzConst.macに関しては、LZZ057.LZH &gt; LZZ.DOC「§最後に」の項よ�
 ## Author
 ZMUSICの作者は西川善司氏です。  
 LzzConst.macの作者はNOVA氏です。  
+ZMUSIC Ver.2.09のパッチ制作者はTcbnErikです。  
 
 このリポジトリの作成はTcbnErikによるものです。  
 https://github.com/kg68k/zmusic2
