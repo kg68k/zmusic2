@@ -28,7 +28,7 @@ ZM_UNIVERSAL = -stype=0 -smpu=30 -sdebug=0
 ZM_RSMIDI    = -stype=3 -smpu=0 -sdebug=0
 ZM_POLYPHON  = -stype=4 -smpu=0 -sdebug=0
 
-ZMUSIC_SRCS  = work.s zmsc2.s dma.mac label.mac macro.mac
+ZMUSIC_SRCS  = work.s zmsc_int.s dma.mac label.mac macro.mac
 ZMUSICX_SRCS = zmusic.s $(ZMUSIC_SRCS)
 ZMSCX_SRCS   = zmsc.s   $(ZMUSIC_SRCS)
 
