@@ -13480,7 +13480,7 @@ its_hex32:
 
 	.include	work.s
 
-	.include	zmsc2.s
+	.include	zmsc_int.s
 
 	.data
 work_start:			*使い捨てのワーク群(後にグローバルワークとして使用される)
