@@ -38,7 +38,7 @@ PCやネット上で扱いやすくするために、このリポジトリ内の
 * [用語解説](manual/glossary.txt)
 
 <!-- -->
-* 非公式情報: [既知の不具合](https://github.com/kg68k/x68.memo/blob/main/tool/bugs.md#z-music-v2-%E8%A9%B3%E7%B4%B0%E6%9C%AA%E7%A2%BA%E8%AA%8D)
+* 非公式情報: [既知の不具合](https://github.com/kg68k/x68.memo/blob/main/tool/bugs.md#z-music-version-208)
 
 
 ## Build
