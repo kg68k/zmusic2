@@ -22,6 +22,8 @@
 	.text
 	.even
 
+_STACK_SIZE::	.equ	8*1024
+
 max:		equ	4096
 max_b:		equ	12	*maxが２の何乗か
 scr_wx:		equ	766	*x width
@@ -328,6 +330,7 @@ do_wild_prp:
 	clr.b	files_hjm
 	move.w	mission_complete(pc),patch1
 	move.w	#RTS,mission_complete
+	bsr	cache_flush
 
 	bsr	make_true_fn
 wild_com_lp:
@@ -348,6 +351,7 @@ wild_com_lp:
 	bra	wild_com_lp
 wild_end:
 	move.w	patch1,mission_complete
+	bsr	cache_flush
 	not.b	files_hjm
 	bmi	mission_complete
 	bra	fn_error
@@ -1275,7 +1279,9 @@ go_rec:
 
 	move.b	d7,(a1)
 
+	bsr	cache_flush
 	move.b	#$88,CCR3	*dma go!
+	bsr	cache_flush
 	move.b	#$4,$e92001	*pcm rec mode
 rc00:
 	moveq.l	#0,d1
@@ -5819,6 +5825,7 @@ sel_mode_mes:	dc.b	'Decide the mode(1.＜  2.＞):',0
 title:		dc.b	$1b,'[36mΖ',$1b,'[35mｖт.х ',$1b,'[37m'
 		dc.b	$F3,'V',$F3,'E',$F3,'R',$F3,'S',$F3,'I',$F3,'O',$F3,'N'
 		dc.b	$f3,' ',$f3,'2',$f3,'.',$f3,'0',$f3,'6'
+		dc.b	$f3,'c'
 author:
 		dc.b	$1b,'[m (C) 1991,1992,1993,1994 '
 		dc.b	$1b,'[36mZENJI SOFT',$1b,'[m',13,10,0
@@ -6045,6 +6052,17 @@ main_scr:			*ﾌｧｲﾙﾒﾆｭｰから帰還した場合
 	bsr	scr_init
 	movem.l	reg_buff2,d0-d7/a0-a6
 	bra	complete
+
+mpu_type:	equ	$cbc
+
+cache_flush:
+	tst.b	mpu_type
+	beq	@f
+	movem.l	d0-d1,-(sp)
+	moveq.l	#3,d1
+	IOCS	_SYS_STAT
+	movem.l	(sp)+,d0-d1
+@@:	rts
 
 g_recover:
 	moveq.l	#0,d1
@@ -7807,6 +7825,7 @@ trans_dma:			*ＤＭＡ転送($ff00バイト以上も考慮)
 	andi.w	#%1100,d3
 	lsr.w	#1,d3
 	move.w	d3a2_op(pc,d3.w),(a0)+
+	bsr	cache_flush
 	move.l	#$ff00,d3
 trans_dma_lp:
 	cmp.l	d3,d2
@@ -7821,6 +7840,7 @@ d3a2:	ds.w	1
 	sub.l	d3,d2
 	bne	trans_dma_lp
 bye_dma:
+	bsr	cache_flush
 	movem.l	(sp)+,d0-d3/a0-a2
 exit_dt:
 	rts
@@ -9809,6 +9829,7 @@ go_command:			*フィルター機能の分岐
 	bsr	val_init	*数値の初期化
 	bsr	fn_chk_p16	*fnが.p16かどうかチェック
 	move.w	#RTS,print_em	*rtsをエラーメッセージ表示ルーチンに書きこんじゃう
+	bsr	cache_flush
 	lea	pitch_cmd(pc),a5
 	lea	volume_cmd(pc),a6
 
@@ -10604,7 +10625,9 @@ adpcm_panst:
 	move.b	$e9a005,d0	*周波数やパンをゲット
 	andi.b	#%1111_0000,d0
 	or.b	d1,d0		*設定値を作成
+	bsr	cache_flush
 	move.b	#$88,CCR3-OCR3(a0)	*dma start
+	bsr	cache_flush
 	move.b	d0,$e9a005	*コントロールデータ送信
 	rts
 
@@ -10764,6 +10787,7 @@ set_vect:				*ADPCMの停止処理の書き換え
 *	move.b	#%0000_0001,$e92001	*adpcm all end
 
 	move.w	#NOP,back_vect		*ベクタ復元必要
+	bsr	cache_flush
 
 	movem.l	(sp)+,d0-d1/a1
 	rts
@@ -10776,6 +10800,7 @@ back_vect:			*ベクタの復元
 	IOCS	_ADPCMMOD	*まず停止
 
 	move.l	break_org(pc),$ac.w	*ブレークキーベクタの復元
+	bsr	cache_flush
 
 	movea.l	last_iocs(pc),a1
 	move.w	#$01fd,d1	*abort

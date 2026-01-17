@@ -6,6 +6,7 @@ v_code_:	equ	$08	*バージョンＩＤ端数
 version	macro
 	dc.b	' ',$f3,(v_code/16)+$30,$f3,'.',$f3,($0f.and.v_code)+$30,$f3,v_code_+$30
 *	dc.b	$f3,'+'
+	dc.b	$f3,'e'
 	endm
 
 Z_MUSIC	macro	number
@@ -65,6 +66,12 @@ set_wn_p	macro
 swp00:
 	endm
 
+midiwait	macro			*24MHzに改造したXVIへ対応/X68030へ対応させる時
+	if	mpu=30
+	bsr	wait_24
+	endif
+	endm
+
 	if	(type<>3.and.type<>4)
 
 	*MIDI ボードのアドレス
@@ -77,12 +84,6 @@ grp6: 	equ	grp5+2
 grp7:	equ	grp6+2
 
 rs232c:		equ	0	*ＭＩＤＩインターフェース
-
-midiwait	macro			*24MHzに改造したXVIへ対応/X68030へ対応させる時
-	if	mpu=30
-	bsr	wait_24
-	endif
-	endm
 
 midi	macro	data,r1,r2	*MIDIボード出力
 	move.b	r1,(a0)
@@ -177,7 +178,9 @@ m_out	macro	data		*RS-MIDIデータ書き出し#1
 out_lp:
 	btst.b	#2,(a3)
 	beq	out_lp
+	midiwait
 	move.b	data,(a4)
+	midiwait
 	endm
 
 m_out_	macro	data		*RS-MIDIデータ書き出し#2
@@ -185,7 +188,9 @@ m_out_	macro	data		*RS-MIDIデータ書き出し#2
 out_lp:
 	btst.b	#2,(a3)
 	beq	out_lp
+	midiwait
 	move.b	data,(a4)
+	midiwait
 	endm
 
 m_out0	macro			*RS-MIDIデータ書き出し#3
@@ -193,7 +198,9 @@ m_out0	macro			*RS-MIDIデータ書き出し#3
 out_lp:
 	btst.b	#2,(a3)
 	beq	out_lp
+	midiwait
 	clr.b	(a4)
+	midiwait
 	endm
 
 	endif
@@ -238,7 +245,7 @@ m_out0	macro			*POLYPHON-MIDIデータ書き出し#3
 
 	endif
 
-	if	mpu=30
+	if	(mpu=30.and.rs232c=0)
 ver_type:	equ	$00		*UNIVERSAL VERSION
 	endif
 
@@ -253,5 +260,15 @@ ver_type:	equ	$20		*RS232C MIDI
 	if	rs232c=1
 ver_type:	equ	$30		*POLYPHON MIDI
 	endif
+
+cache_flush	macro
+	tst.b	$cbc
+	beq	@skip
+	movem.l	d0-d1,-(sp)
+	moveq.l	#3,d1
+	IOCS	_SYS_STAT
+	movem.l	(sp)+,d0-d1
+@skip:
+	.endm
 
 	.list

@@ -17,6 +17,23 @@ chk_mj	macro	moji		*マクロ
 
 adpcm_n_max:	equ	128*4
 
+cache_flush_ng	.macro
+	movem.l	d0-d1,-(sp)
+	moveq.l	#1,d0
+	.cpu	68020
+	move.b	@skip(pc,d0.w*2),d1
+	.cpu	68000
+	beq	@skip
+	moveq	#3,d1
+	IOCS	_SYS_STAT
+	bra	@skip
+@unknown:
+	moveq	#0,d1
+	moveq	#-1,d0
+@skip:
+	movem.l	(sp)+,d0-d1
+.endm
+
 *-------- program start --------
 	lea	$10(a0),a0	*メモリブロックの変更
 	lea.l	user_sp(pc),a1
@@ -711,7 +728,7 @@ do_save:
 
 	move.l	date_buf(pc),-(sp)
 	move.w	sfh(pc),-(sp)
-	DOS	_V2_FILEDATE
+	DOS	_FILEDATE
 	addq.w	#6,sp
 
 	DOS	_ALLCLOSE
@@ -810,7 +827,7 @@ adfop0:
 
 	move.l	d4,-(sp)
 	move.w	#2,-(sp)
-	DOS	_V2_MALLOC2
+	DOS	_MALLOC2
 	addq.w	#6,sp
 	move.l	d0,read_adr-work(a6)
 	bmi	mem_error	*out of memory
@@ -870,7 +887,7 @@ non_read:			*ディスクからでなくてメモリから
 
 	move.l	d4,-(sp)
 	move.w	#2,-(sp)
-	DOS	_V2_MALLOC2
+	DOS	_MALLOC2
 	addq.w	#6,sp
 	move.l	d0,read_adr-work(a6)
 	bmi	mem_error	*out of memory
@@ -912,7 +929,7 @@ process1:
 @@:
 	move.l	d1,-(sp)
 	move.w	#2,-(sp)
-	DOS	_V2_MALLOC2
+	DOS	_MALLOC2
 	addq.w	#6,sp		*ワーク確保
 	move.l	d0,work_adr-work(a6)
 	bmi	mem_error
@@ -971,7 +988,7 @@ reverse?:			*リバース??
 	beq	fade_in_out?
 	move.l	d4,-(sp)
 	move.w	#2,-(sp)
-	DOS	_V2_MALLOC2
+	DOS	_MALLOC2
 	addq.w	#6,sp		*ワーク確保
 	tst.l	d0
 	bmi	mem_error
@@ -1076,7 +1093,7 @@ case_mix:
 
 	move.l	d2,-(sp)
 	move.w	#2,-(sp)
-	DOS	_V2_MALLOC2	*MIX DESTINATION用のワーク
+	DOS	_MALLOC2	*MIX DESTINATION用のワーク
 	addq.w	#6,sp
 	move.l	d0,dest_adr-work(a6)
 	bmi	mem_error
@@ -1954,7 +1971,7 @@ read:
 
 	clr.l	-(sp)
 	move.w	d5,-(sp)
-	DOS	_V2_FILEDATE
+	DOS	_FILEDATE
 	addq.w	#6,sp
 	move.l	d0,date_buf-work(a6)
 
@@ -2413,6 +2430,7 @@ trans_dma:			*ＤＭＡ転送($ff00バイト以上も考慮)
 	andi.w	#%1100,d3
 	lsr.w	#1,d3
 	move.w	d3a2_op(pc,d3.w),(a0)+
+	cache_flush_ng
 	move.l	#$ff00,d3
 trans_dma_lp:
 	cmp.l	d3,d2
@@ -2422,11 +2440,12 @@ trans_dma_lp:
 	move.l	d3,d2
 	IOCS	_DMAMOVE
 	movem.l	(sp)+,d2/a1-a2
-d3a1:	ds.w	1
-d3a2:	ds.w	1
+d3a1:	nop
+d3a2:	nop
 	sub.l	d3,d2
 	bne	trans_dma_lp
 bye_dma:
+	cache_flush_ng
 	movem.l	(sp)+,d0-d3/a0-a2
 exit_dt:
 	rts
@@ -2605,6 +2624,7 @@ title_mes:
 	dc.b	$1b,'[36mΖ',$1b,'[35mpcnv.R '
 	dc.b	$1b,'[37m',$f3,'V',$F3,'E',$F3,'R',$F3,'S',$F3,'I',$F3,'O',$F3,'N'
 	dc.b	$f3,' ',$f3,'2',$f3,'.',$f3,'0',$f3,'4'
+	dc.b	$f3,'d'
 	dc.b	$1b,'[m (C) 1991,1992,1993,1994 '
 	dc.b	$1b,'[36mZENJI SOFT',$1b,'[m',13,10,0
 hlp_mes:

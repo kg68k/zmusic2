@@ -26,12 +26,18 @@ RTS:		equ	$4e75		*RTSの命令コード
 BSR:		equ	$6100		*BSR.wの命令コード
 fm_addr_port:	equ	$e90001
 fm_data_port:	equ	$e90003
+joy_port1:	equ	$e9a001
 
 opmwait		macro			*24MHzに改造したXVIへ対応/X68030へ対応させる時
 	local	chk_opm_wait
+	nop
 chk_opm_wait:
 	tst.b	fm_data_port	*busy check
+	nop
 	bmi	chk_opm_wait
+	nop
+	tst.b	joy_port1
+	nop
 	endm
 
 opmset	macro	reg,data	*ＦＭ音源のレジスタ書き込み
@@ -53,6 +59,16 @@ bitsns	macro	n,dreg
 sftsns	macro	dreg
 	move.w	$810.w,dreg
 	endm
+
+cache_flush	macro
+	tst.b	$cbc
+	beq	@skip
+	movem.l	d0-d1,-(sp)
+	moveq.l	#3,d1
+	IOCS	_SYS_STAT
+	movem.l	(sp)+,d0-d1
+@skip:
+	.endm
 
 top:
 	bra	non_keep
@@ -751,6 +767,7 @@ debug_mode:
 	move.w	#BSR+((set_timer-_ff1-2).and.$ff),_ff1-work(a6)
 	move.w	#$5d,_sl0+2-work(a6)
 	move.w	#BSR+((set_timer-_sl1-2).and.$ff),_sl1-work(a6)
+	cache_flush
 @@:
 	move.l	ssp(pc),a1	*ユーザーモードへ
 	IOCS	_B_SUPER
@@ -1555,6 +1572,7 @@ trans_dma:			*ＤＭＡ転送($ff00バイト以上も考慮)
 	andi.w	#%1100,d3
 	lsr.w	#1,d3
 	move.w	d3a2_op(pc,d3.w),(a0)+
+	cache_flush
 	move.l	#$ff00,d3
 trans_dma_lp:
 	cmp.l	d3,d2
@@ -1569,6 +1587,7 @@ d3a2:	ds.w	1
 	sub.l	d3,d2
 	bne	trans_dma_lp
 bye_dma:
+	cache_flush
 	movem.l	(sp)+,d0-d3/a0-a2
 exit_dt:
 	rts
@@ -1705,6 +1724,7 @@ m_pllp00_:
 
 synchro_play:
 	move.w	#RTS,exit-work(a6)
+	cache_flush
 	moveq.l	#-1,d2
 	Z_MUSIC	#$54		*interception mode
 	bsr	m_play
@@ -3691,7 +3711,7 @@ set_suji_end:
 title_mes:
 	dc.b	$1b,'[36mΖ',$1b,'[35mp.R '
 	dc.b	$1b,'[37m',$F3,'V',$F3,'E',$F3,'R',$F3,'S',$F3,'I',$F3,'O',$F3,'N'
-	dc.b	$f3,' ',$f3,'2',$f3,'.',$f3,'0',$f3,'2'	*,$f3,'A'
+	dc.b	$f3,' ',$f3,'2',$f3,'.',$f3,'0',$f3,'2',$f3,'c'
 	dc.b	$1b,'[m (C) 1991,1992,1993,1994 '
 	dc.b	$1b,'[36mZENJI SOFT',$1b,'[m',13,10,0
 hlp_mes:
