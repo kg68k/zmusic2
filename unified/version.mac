@@ -1,0 +1,37 @@
+
+*バージョン番号
+VERSION_MAJOR:  .equ $2  *整数部(zmsc3.xで$3が使われているので変更不可)
+VERSION_MINOR1: .equ $0  *小数第一位
+VERSION_MINOR2: .equ $8  *小数第二位
+
+VER_TYPE_STR: .macro str
+  VER_TYPE_STR: .macro op
+    op str
+  .endm
+.endm
+
+.ifdef CZ6BMI
+.ifdef OLD16BIT
+VERSION_TYPE: .equ $1
+VER_TYPE_STR '16bit'
+.else
+VERSION_TYPE: .equ $0
+VER_TYPE_STR 'UNIVERSAL'
+.endif
+MIDI_TYPE: .equ $00
+.endif
+
+.ifdef RSMIDI
+VERSION_TYPE: .equ $2
+VER_TYPE_STR 'RS-MIDI'
+MIDI_TYPE: .equ $ff
+.endif
+
+.ifdef POLYPHON
+VERSION_TYPE: .equ $3
+VER_TYPE_STR 'POLYPHON'
+MIDI_TYPE: .equ $01
+.endif
+
+*常駐識別子の直後(trap #3の直前)に置くバージョンコード
+VERSION_CODE: .equ (VERSION_MAJOR<<12)+(VERSION_MINOR1<<8)+(VERSION_TYPE<<4)+(VERSION_MINOR2)

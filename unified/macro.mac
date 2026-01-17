@@ -1,0 +1,306 @@
+	.nlist
+
+CRLF: .reg 13,10		*改行コード
+TAB: .equ $09
+
+*エスケープシーケンス
+COL_DEF:     .reg $1b,'[m'
+COL1:        .reg $1b,'[31m'
+COL2:        .reg $1b,'[32m'
+COL3:        .reg $1b,'[33m'
+COL1_EM:     .reg $1b,'[35m'
+COL2_EM:     .reg $1b,'[36m'
+COL3_EM:     .reg $1b,'[37m'
+COL3_EM_REV: .reg $1b,'[47m'
+
+SUBSCRIPT_C: .macro code	*下付き文字
+	.dc.b	$f3,code
+.endm
+
+SUBSCRIPT_S: .macro str		*下付き文字列
+    irpc ch,str
+	SUBSCRIPT_C '&ch'
+    .endm
+.endm
+
+IF_FULL	macro	op		*FULL版(zmusic.x)のみ有効
+.ifndef TINY
+	op
+.endif
+	endm
+
+IF_TINY	macro	op		*TINY版(zmsc.x)のみ有効
+.ifdef TINY
+	op
+.endif
+	endm
+
+	IF_FULL <EXEFILE: .reg 'ZMUSIC.X'>
+	IF_TINY	<EXEFILE: .reg 'ZMSC.X'>
+
+FT_JBRA	macro	label
+	IF_FULL	<jmp label-work(a6)>
+	IF_TINY	<bra label>
+	endm
+
+FT_JBSR	macro	label
+	IF_FULL	<jsr label-work(a6)>
+	IF_TINY	<bsr label>
+	endm
+
+FT_LEA	macro	label,areg
+	IF_FULL	<lea label-work(a6),areg>
+	IF_TINY	<lea label(pc),areg>
+	endm
+
+Z_MUSIC	macro	number
+	move.l	number,d1
+	bsr	Z_MUSIC
+	endm
+
+ZM	macro	number
+	move.l	number,d1
+	trap	#3
+	endm
+
+ZMCALL	macro	number
+	.sizem	sz,argc
+.if argc>=1
+	move.l	number,d1
+.endif
+	IF_FULL	<bsr Z_MUSIC>
+	IF_TINY <trap #3>
+	endm
+
+t_err	macro	no
+	move.l	no,d0
+	bra	disp_t_err?
+	endm
+
+m_err	macro	number
+	move.l	number,d0
+	bra	case_m_err
+	endm
+
+opmwait		macro			*24MHzに改造したXVIへ対応/X68030へ対応させる時
+	bsr	chk_opm_wait
+	endm
+
+opmset	macro	reg,data	*ＦＭ音源のレジスタ書き込み
+	opmwait
+	move.b	reg,fm_addr_port
+	opmwait
+	move.b	data,fm_data_port
+	endm
+
+opmset0	macro	reg		*ＦＭ音源のレジスタ書き込み(case:data=0)
+	opmwait
+	move.b	reg,fm_addr_port
+	opmwait
+	clr.b	fm_data_port
+	endm
+
+fmkey_off	macro	ch	*指定チャンネルをキーオフ
+	opmset	#8,ch
+	endm
+
+set_wn_p	macro
+	* < d4=アクセス対象チャンネル
+	* X d0 d1
+	* - d4
+	local	swp00
+	moveq.l	#0,d0
+	move.b	p_pgm(a5),d0
+	bmi	swp00
+	move.b	p_ch(a5),d1
+	move.b	d4,p_ch(a5)
+	bsr	pan_save_fmvset		*set 音色
+	move.b	d1,p_ch(a5)
+swp00:
+	endm
+
+NOP:		equ	$4e71		*NOPの命令コード
+NOP_NOP:	equ	$4e71_4e71	*NOPの命令コード
+JMP:		equ	$4ef9		*JMPの命令コード
+JSR:		equ	$4eb9		*JSRの命令コード
+BRA:		equ	$6000		*BRA.wの命令コード
+BSR:		equ	$6100		*BSR.wの命令コード
+RTS:		equ	$4e75		*RTSの命令コード
+RTE:		equ	$4e73		*RTEの命令コード
+
+fm_addr_port:	equ	$e90001
+fm_data_port:	equ	$e90003
+
+
+.ifdef CZ6BMI
+
+	*MIDI ボードのアドレス
+rgr: 	equ	$eafa03
+isr: 	equ	$eafa05
+icr:	equ	$eafa07
+grp4: 	equ	icr+2
+grp5:	equ	grp4+2
+grp6: 	equ	grp5+2
+grp7:	equ	grp6+2
+
+midiwait	macro			*24MHzに改造したXVIへ対応/X68030へ対応させる時
+	.ifndef	OLD16BIT
+	bsr	wait_24
+	.endif
+	endm
+
+midi	macro	data,r1,r2	*MIDIボード出力
+	move.b	r1,(a0)
+	midiwait
+	move.b	data,r2
+	midiwait
+	endm
+
+set_a3a4	macro
+	lea	rgr+6,a4
+	lea	4(a4),a3
+	move.b	#5,-6(a4)
+	midiwait
+	endm
+
+set_a3a4_	macro
+	lea	rgr+6,a4
+	lea	4(a4),a3
+	endm
+
+m_inp	macro	data		*MIDIデータ読み出し
+	local	inp_exit
+	move.b	#3,-6(a4)
+	midiwait
+	moveq.l	#-1,data
+	tst.b	(a4)
+	bpl	inp_exit
+	*midiwait
+	moveq.l	#0,data
+	move.b	(a3),data
+	*midiwait
+inp_exit:
+	endm
+
+m_out	macro	data		*MIDIデータ書き出し#1
+	local	out_lp
+	move.b	#5,-6(a4)
+	midiwait
+out_lp:
+	btst.b	#6,(a4)
+	beq	out_lp
+	*midiwait
+	move.b	data,(a3)
+	midiwait
+	endm
+
+m_out_	macro	data		*MIDIデータ書き出し#2
+	local	out_lp
+out_lp:
+	btst.b	#6,(a4)
+	beq	out_lp
+	*midiwait
+	move.b	data,(a3)
+	midiwait
+	endm
+
+m_out0	macro			*MIDIデータ書き出し(case:data=0)
+	local	out_lp
+out_lp:
+	btst.b	#6,(a4)
+	beq	out_lp
+	*midiwait
+	clr.b	(a3)
+	midiwait
+	endm
+
+.endif
+
+.ifdef RSMIDI
+
+set_a3a4	macro
+	lea	$e98005,a3
+	lea	2(a3),a4
+	endm
+
+set_a3a4_	macro
+	lea	$e98005,a3
+	lea	2(a3),a4
+	endm
+
+m_inp	macro	data		*RS-MIDIデータ読み出し
+	local	inp_exit
+	moveq.l	#-1,data
+	btst.b	#0,(a3)
+	beq	inp_exit
+	moveq.l	#0,data
+	move.b	(a4),data
+inp_exit:
+	endm
+
+m_out	macro	data		*RS-MIDIデータ書き出し#1
+	local	out_lp
+out_lp:
+	btst.b	#2,(a3)
+	beq	out_lp
+	move.b	data,(a4)
+	endm
+
+m_out_	macro	data		*RS-MIDIデータ書き出し#2
+	local	out_lp
+out_lp:
+	btst.b	#2,(a3)
+	beq	out_lp
+	move.b	data,(a4)
+	endm
+
+m_out0	macro			*RS-MIDIデータ書き出し#3
+	local	out_lp
+out_lp:
+	btst.b	#2,(a3)
+	beq	out_lp
+	clr.b	(a4)
+	endm
+
+.endif
+
+.ifdef POLYPHON
+
+set_a3a4	macro
+	lea	polyphon_buff(pc),a3
+	lea	polyphon_midi_out(pc),a4
+	endm
+
+set_a3a4_	macro
+	lea	polyphon_buff(pc),a3
+	lea	polyphon_midi_out(pc),a4
+	endm
+
+m_inp	macro	data		*POLYPHON-MIDIデータ読み出し
+	local	inp_exit
+	moveq.l	#-1,data
+	bsr	polyphon_midi_in
+	bmi	inp_exit
+	moveq.l	#0,data
+	move.b	(a3),data
+inp_exit:
+	endm
+
+m_out	macro	data		*POLYPHON-MIDIデータ書き出し#1
+	move.b	data,(a3)
+	jsr	(a4)
+	endm
+
+m_out_	macro	data		*POLYPHON-MIDIデータ書き出し#2
+	move.b	data,(a3)
+	jsr	(a4)
+	endm
+
+m_out0	macro			*POLYPHON-MIDIデータ書き出し#3
+	clr.b	(a3)
+	jsr	(a4)
+	endm
+
+.endif
+
+	.list
