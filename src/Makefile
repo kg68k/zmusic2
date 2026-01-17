@@ -1,13 +1,5 @@
 # Makefile for Z-MUSIC Ver.2
 
-ifeq ($(notdir $(CURDIR)),src)
-$(error do not execute make in src directory)
-endif
-
-SRCDIR_MK = ../srcdir.mk
-SRC_DIR = ../src
--include $(SRCDIR_MK)
-
 AS = has060
 ASFLAGS = -w2 -c2 -i./include
 LD ?= hlk
