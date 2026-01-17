@@ -9,7 +9,7 @@ SRC_DIR = ../src
 -include $(SRCDIR_MK)
 
 AS = has060
-ASFLAGS = -w2 -c2 -i./include
+ASFLAGS = -w2 -c3 -i./include
 LD ?= hlk
 LDFLAGS =
 CV = cv
@@ -25,7 +25,7 @@ TARGET = zmusic.x zmusic_rs.x zmusic_po.x zmsc.x zmsc_rs.x zmsc_po.x \
 	 ZMUSIC.L
 
 ZM_UNIVERSAL = -stype=0 -smpu=30 -sdebug=0
-ZM_RSMIDI    = -stype=3 -smpu=0 -sdebug=0
+ZM_RSMIDI    = -stype=3 -smpu=30 -sdebug=0
 ZM_POLYPHON  = -stype=4 -smpu=0 -sdebug=0
 
 ZMUSIC_SRCS  = work.s zmsc_int.s dma.mac label.mac macro.mac
