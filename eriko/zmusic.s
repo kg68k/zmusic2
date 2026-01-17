@@ -213,9 +213,9 @@ dev_o_lop:
 	moveq.l	#0,d0
 	move.b	(a4)+,d0
 	bmi	dev_out0	*漢字??
-	cmpi.b	#$0a,d0		*改行
+	cmpi.b	#LF,d0		*改行
 	beq	add_ln
-	cmpi.b	#$1a,d0		*ファイル終端
+	cmpi.b	#EOF,d0		*ファイル終端
 	beq	dev_out_end	*終了
 	cmpi.b	#' ',d0
 	bls	dev_o_lop	*SPC以下(spcやtabその他のコントロールコード)なら無視
@@ -313,9 +313,10 @@ dev_out0:			*case:漢字(半角を見付けるまでループ)
 dev_out1:			*case:コメント行(改行を見付けるまでループ)
 	subq.l	#1,d4
 	bmi	dev_out_end	*終了
-	cmpi.b	#$0d,(a4)+
+	cmpi.b	#LF,(a4)+	*cmpi.b #CR,(a4)+
 	bne	dev_out1
-	bra	dev_o_lop	*恐らく次は$0a
+	bra	add_ln		*bra dev_o_lop	*恐らく次は$0a
+
 
 undef:				*定義されていない命令コードの時はエラー
 	moveq.l	#92,d0		*未定儀のコマンドです
@@ -454,8 +455,10 @@ srch_num:			*数字までスキップ
 	subq.l	#1,d4
 	bmi	@f		*コマンドの途中でファイルの最後に来た
 	move.b	(a4)+,d0
-	cmpi.b	#$0d,d0
+	cmpi.b	#CR,d0
 	beq	sn_err		*コマンドの途中で改行
+	cmpi.b	#LF,d0
+	beq	sn_err
 	cmpi.b	#')',d0
 	beq	sn_err
 	cmpi.b	#',',d0
@@ -1504,12 +1507,9 @@ copy_fnlp01:
 	cmpi.b	#' ',d0		*ctrl code
 	bls	exit_copyfn
 	tst.b	d2
-	beq	@f
+	beq	cfst_lt
 	tst.b	-1(a0)
 	bmi	cfst_lt
-@@:
-cf_patch:			*-C時にパッチが当たる
-	bsr.s	mk_capital
 cfst_lt:
 	move.b	d0,(a0)+
 	st.b	d2
@@ -1780,8 +1780,8 @@ exit_adpcm_cnf:			*case error
 get_filedate:
 	clr.l	-(sp)
 	move.w	d5,-(sp)
-rwff3:
-	DOS	_V2_FILEDATE
+*rwff3:
+	DOS	_FILEDATE
 	addq.w	#6,sp
 	rts
 
@@ -1798,6 +1798,7 @@ so_read:
 
 so_ope:
 	move.w	#$7400,case_child-work(a6)
+	bsr	cache_flush
 
 	move.w	#%0_000_01,-(sp)	*自分自身へ出力しちゃう
 	move.l	out_name(pc),-(sp)
@@ -1815,7 +1816,8 @@ so_ope:
 	bsr	do_fclose
 
 	move.w	#NOP,case_child-work(a6)
-	rts
+	bra	cache_flush
+**	rts
 
 get_fsize:			*ファイルサイズの偶数調整なし
 	* < d5.w=file handle
@@ -1873,8 +1875,7 @@ fopen:				*ファイルのオープン(環境変数参照モード)
 
 	pea	getname(pc)
 	bsr	search_env
-	addq.w	#4,sp
-	tst.l	d0
+	move.l	d0,(sp)+
 	bmi	exit_fopen
 	move.l	d0,a1
 
@@ -1904,8 +1905,7 @@ standard_dir:
 	move.b	(a1)+,getname+6-work(a6)
 	pea	getname(pc)
 	bsr	search_env
-	addq.w	#4,sp
-	tst.l	d0
+	move.l	d0,(sp)+
 	bmi	exit_fopen
 	move.l	d0,a3
 	clr.b	getname+6-work(a6)
@@ -1993,10 +1993,14 @@ exit_fopen:
 
 search_env:
 	movem.l	a0-a1,-(sp)
-rwff1:
-	DOS	_V2_GETPDB
+*rwff1:
+	DOS	_GETPDB
 	move.l	d0,a1		*環境変数文字列群
-	move.l	(a1),a1
+	move.l	(a1),d0
+	bmi	search_env_error
+*	cmpi.l	#-1,d0
+*	beq	search_env_error
+	movea.l	d0,a1
 	addq.w	#4,a1
 	tst.b	(a1)
 	beq	exit_sen	*環境変数なし
@@ -2019,6 +2023,7 @@ skip_next_en:
 	bne	skip_next_en
 	tst.b	(a1)
 	bne	sen_lp00
+search_env_error:
 	moveq.l	#-1,d0		*error
 exit_sen:
 	movem.l	(sp)+,a0-a1
@@ -2027,54 +2032,31 @@ exit_sen:
 fname_chk:
 	* > eq=same
 	* > mi=not same
-	movem.l	d0-d1/a0-a1,-(sp)
-	lea	filename(pc),a0
+	movem.l	d0/a0-a1,-(sp)
+	lea	(filename,pc),a0
+	lea	(last_fn,pc),a1
 @@:
-	moveq.l	#0,d1
-	lea	last_fn(pc),a1
-chk_fnlp:			*同じファイルを以前読んでないか
-	move.b	(a0)+,d0
-	tst.b	d1
-	beq	@f
-	tst.b	-2(a0)
-	bmi	chkfn0
-@@:
-	bsr	mk_capital
-chkfn0:
-	st.b	d1
-	cmp.b	(a1)+,d0
-	bne	fn_diff
-	tst.b	(a1)
-	bne	chk_fnlp
-				*同じ物は読まない
-	moveq.l	#0,d0
-	movem.l	(sp)+,d0-d1/a0-a1
-	rts
-fn_diff:
-	moveq.l	#-1,d0
-	movem.l	(sp)+,d0-d1/a0-a1
+	cmpm.b	(a0)+,(a1)+
+	bne	@f
+	tst.b	(-1,a0)
+	bne	@b
+	moveq	#0,d0		*前回読んだファイルと同じ
+	bra	1f
+@@:	moveq	#-1,d0
+1:	movem.l	(sp)+,d0/a0-a1
 	rts
 
+
 fn_to_lastfn:			*ファイルネーム保存
-	movem.l	d0-d1/a1-a2,-(sp)
-	lea	filename(pc),a1
+	movem.l	a0-a1,-(sp)
+	lea	(filename,pc),a0
+	lea	(last_fn,pc),a1
 @@:
-	moveq.l	#0,d1
-	lea	last_fn(pc),a2
-ftl_lp:
-	move.b	(a1)+,d0
-	tst.b	d1
-	beq	@f
-	tst.b	-2(a1)
-	bmi	ftl_lt
-@@:
-	bsr	mk_capital
-ftl_lt:
-	st.b	d1
-	move.b	d0,(a2)+
-	bne	ftl_lp
-	movem.l	(sp)+,d0-d1/a1-a2
+	move.b	(a0)+,(a1)+
+	bne	@b
+	movem.l	(sp)+,a0-a1
 	rts
+
 
 fn_copy:			*ファイルネームのコピー
 	* < a0=compile data address
@@ -2082,9 +2064,8 @@ fn_copy:			*ファイルネームのコピー
 	* > d1.b=minus(拡張子が存在)
 	* > d1.b=eq(拡張子はなかった)
 	* - all except d1 d4 a0 a4
-	movem.l	d0/d2,-(sp)
+	move.l	d0,-(sp)
 	moveq.l	#0,d1
-	moveq.l	#0,d2
 fnc_lp:
 	subq.l	#1,d4
 	bmi	exit_fnc
@@ -2099,15 +2080,7 @@ fnc_lp:
 	beq	exit_acs
 	cmpi.b	#' ',d0		*ctrl code
 	bls	exit_acs
-	tst.b	d2
-	beq	@f
-	tst.b	(a0)
-	bmi	fnc0
-@@:
-	bsr	mk_capital
-fnc0:
 	move.b	d0,-(a0)
-	st.b	d2
 	bra	fnc_lp
 exit_acs:
 	subq.w	#1,a4
@@ -2118,7 +2091,7 @@ exit_fnc:
 	addq.w	#1,a0		*最後の'.'を潰させる
 @@:
 	clr.b	-(a0)
-	movem.l	(sp)+,d0/d2
+	move.l	(sp)+,d0
 	rts
 
 exec_cmp:			*コンパイルデータの実行
@@ -2179,7 +2152,7 @@ shp_p_lp:
 	subq.l	#1,d4
 	bmi	go_dev_out_end	*任務を全う出来ず
 	move.b	(a4)+,d1
-	cmpi.b	#$0a,d1
+	cmpi.b	#LF,d1
 	bne	@f
 	addq.l	#1,line_number-work(a6)
 	bra	shp_p_lp
@@ -2198,9 +2171,9 @@ prt_lp:
 	bne	prt_lp
 exit_prt_lp:
 	move.b	-1(a4),d1
-	move.b	#$0d,-1(a4)	*cr
+	move.b	#CR,-1(a4)
 	move.b	(a4),d2
-	move.b	#$0a,(a4)	*lf
+	move.b	#LF,(a4)
 	move.b	1(a4),d3
 	clr.b	1(a4)		*end code
 	move.l	shp_com_ptr(pc),-(sp)
@@ -2224,8 +2197,8 @@ prt_lp2:
 	bhi	prt_lp2
 	bra	wk__error_		*work is too small
 exit_prt_lp2:
-	move.b	#$0d,-(a0)	*cr
-	move.b	#$0a,-(a0)	*lf
+	move.b	#CR,-(a0)
+	move.b	#LF,-(a0)
 	clr.b	-(a0)
 	bra	st_compilep
 
@@ -2240,7 +2213,9 @@ cmt_lp2:
 	subq.l	#1,d4
 	bmi	exit_cmt_lp
 	move.b	(a4)+,d0
-	cmpi.b	#$0d,d0
+	cmpi.b	#CR,d0
+	beq	exit_cmt_lp2
+	cmpi.b	#LF,d0
 	beq	exit_cmt_lp2
 	move.b	d0,-(a0)
 	cmpa.l	adpcm_work_top(pc),a0
@@ -2260,7 +2235,9 @@ cmt_nml:
 	subq.l	#1,d4
 	bmi	go_dev_out_end
 	move.b	(a4)+,d0
-	cmpi.b	#$0d,d0
+	cmpi.b	#CR,d0
+	beq	@f
+	cmpi.b	#LF,d0
 	beq	@f
 	move.b	d0,(a0)+
 	subq.w	#1,d1
@@ -2433,7 +2410,9 @@ getstr_lp:
 	beq	@f		*終わり
 	move.b	d0,(a1)+
 	bmi	getstr_err
-	cmpi.b	#$0d,(a4)	*終端記号なしで改行の場合は終わり
+	cmpi.b	#CR,(a4)	*終端記号なしで改行の場合は終わり
+	bne	getstr_lp
+	cmpi.b	#LF,(a4)
 	bne	getstr_lp
 @@:
 	rts
@@ -2602,9 +2581,7 @@ gip_wrt3_1:
 	bpl	shp_syntax_err
 end_gip3:
 	clr.b	shp_com_no-work(a6)
-	move.b	map_number(pc),d3
-	lsl.w	#8,d3
-	move.b	rythm_number(pc),d3
+	MOVEW2	(map_number,pc),(rythm_number,pc),d3
 	swap	d3
 gip_wrt3_2:
 	move.b	(a5),d3			*d3.hw=part number,d3.lw=ID
@@ -2642,7 +2619,7 @@ inst_p_lp:
 	subq.l	#1,d4
 	bmi	shp_p_err	*任務を全う出来ず
 	move.b	(a4)+,d1
-	cmpi.b	#$0a,d1
+	cmpi.b	#LF,d1
 	bne	@f
 	addq.l	#1,line_number-work(a6)
 	bra	inst_p_lp
@@ -2898,7 +2875,7 @@ find_qtlp:
 	subq.l	#1,d4
 	bmi	exit_tpnm_
 	move.b	(a4)+,d1
-	cmpi.b	#$0a,d1
+	cmpi.b	#LF,d1
 	bne	@f
 	addq.l	#1,line_number-work(a6)
 	bra	find_qtlp
@@ -3258,13 +3235,13 @@ babin
 
 pcmdev_inp1:				*PCMDRV.SYS処理
 	movem.l	d1-d2/a1,-(sp)
-	moveq.l	#$61,d0
+	moveq.l	#_ADPCMINP,d0
 	bra	@f
 pcmdev_out1:
 	movem.l	d1-d2/a1,-(sp)
 	moveq.l	#0,d1
 	IOCS	_ADPCMMOD
-	moveq.l	#$60,d0
+	moveq.l	#_ADPCMOUT,d0
 @@:
 	move.l	$12(a5),d2		*length
 	move.l	$0e(a5),a1		*address
@@ -3281,9 +3258,7 @@ ioctrl_inp1:
 
 ioctrl_out1:
 	movea.l	$0e(a5),a4
-	move.b	(a4)+,d0
-	lsl.w	#8,d0
-	move.b	(a4)+,d0
+	MOVEW	(a4)+,d0
 	move.w	d0,frqpan
 	bra	ok_com
 
@@ -3313,7 +3288,7 @@ do_dvi_exit:
 	movem.l	(sp)+,d0-d4/a0/a4/a6
 	bra	ok_com
 dvi_exit:
-	move.b	#$1a,(a4)
+	move.b	#EOF,(a4)
 	bra	do_dvi_exit
 
 dev_out_2:			*MIDI生データの出力
@@ -3333,7 +3308,7 @@ do2_lp01:
 	beq	mark_cmnt
 	cmpi.b	#'*',d0
 	beq	mark_cmnt
-	cmpi.b	#$0d,d0		*改行コード等をSKIP
+	cmpi.b	#CR,d0		*改行コード等をSKIP
 	bls	come_to_an_end
 	cmpi.b	#'.',d0		*SPCその他をスキップ
 	bls	come_to_sep
@@ -3533,6 +3508,7 @@ case_c_i0:
 	move.l	adpcm_work_top(pc),adpcm_work_now-work(a6)
 	st.b	adpb_clr-work(a6)
 	move.w	#NOP,se_ope-work(a6)			*ALL ENABLEのケース
+	bsr	cache_flush
 
 case_c_i1:				*cp!!(コンパイルモード時の初期化はここまで)
 	bsr	init_play_trk_tbl	*演奏トラックテーブル初期化
@@ -4131,7 +4107,7 @@ mst_end:
 	move.l	d3,d0
 	tst.l	d2			*個別指定の時は既に考慮済み
 	bpl	@f
-	tst.b	real_ch_tbl-work(a6)	*ベースチャンネル考慮
+	tst.b	(real_ch_tbl-work,a6)	*ベースチャンネル考慮
 	beq	@f
 	moveq.l	#9,d1
 	lsr.l	d1,d0
@@ -4144,7 +4120,7 @@ mst_end:
 rev_ch:			*チャンネルビットパターンをベースチャンネルを考慮したものに修正する
 	* < d2.l=ch bit pattern
 	* X d0-d1
-	tst.b	real_ch_tbl-work(a6)
+	tst.b	(real_ch_tbl-work,a6)
 	beq	exit_rev_ch
 	move.l	d2,d1
 	andi.l	#$fe00_0000,d1
@@ -4534,11 +4510,11 @@ adpcm_read:			*ADPCMファイルを読み込む
 	cmp.w	adpcm_n_max+2(pc),d4	*MIXノート番号が異常
 	bcc	t_err_67
 @@:
-	tst.l	d5
-	beq	@f
+*	tst.l	d5
+*	beq	@f
 *	tst.w	d5
 *	beq	t_err_67	*CUT サイズが異常
-@@:
+*@@:
 	tst.l	d7
 	beq	@f
 	tst.b	d7
@@ -5285,6 +5261,7 @@ play_cnv_data:			*コンパイルデータの演奏
 	move.l	adpcm_work_top(pc),adpcm_work_now-work(a6)
 	st.b	adpb_clr-work(a6)
 	move.w	#NOP,se_ope-work(a6)		*ALL ENABLEのケース
+	bsr	cache_flush
 	move.l	#$0403_0000,frq-work(a6)	*frq,pan,noise_mode,first_cmt
 						*noise mode off(レジスタ書き込みは
 						*必要であればinit_instで行なわれる)
@@ -5751,20 +5728,11 @@ exit_no_err:
 	bsr	do_fclose
 	bra	srch_fn_end	*exit
 
-get_cm_w:
-	move.b	(a2)+,d0
-	lsl.w	#8,d0
-	move.b	(a2)+,d0
-	rts
-
 get_cm_l:
-	move.b	(a2)+,d0
-	lsl.w	#8,d0
-	move.b	(a2)+,d0
+	MOVEW	(a2)+,d0
 	swap	d0
-	move.b	(a2)+,d0
-	lsl.w	#8,d0
-	move.b	(a2)+,d0
+get_cm_w:
+	MOVEW	(a2)+,d0
 	rts
 
 se_adpcm1:			*ADPCMをSEモードで鳴らす
@@ -5941,8 +5909,8 @@ midi_rec_end:			*MIDI生データ録音終了&GETステータス
 	bsr	m_init
 	movem.l	(sp)+,a0-a1
 	movea.l	trk_top(pc),a2
-	move.b	#$0d,(a2)+	*DUMMY HEADER
-	move.b	#$0a,(a2)+
+	move.b	#CR,(a2)+	*DUMMY HEADER
+	move.b	#LF,(a2)+
 	moveq.l	#16-1,d2
 	moveq.l	#0,d3
 gmd_lp01:
@@ -5977,17 +5945,17 @@ go_next_gmd1:
 	bra	gmd_lp01
 set_crlf:
 	moveq.l	#16-1,d2
-	move.b	#$0d,-1(a2)
-	move.b	#$0a,(a2)+
+	move.b	#CR,-1(a2)
+	move.b	#LF,(a2)+
 	rts
 all_end_gmd:
-	move.b	#$1a,(a2)+
+	move.b	#EOF,(a2)+
 	move.l	a2,d2
 	movea.l	trk_top(pc),a1		*source
 	sub.l	a1,d2			*size
 	movea.l	adpcm_work_now(pc),a2	*destination
 	move.l	a2,rec_data_now-work(a6)
-	move.b	#$1a,(a2)		*dummy for error exition
+	move.b	#EOF,(a2)		*dummy for error exition
 	move.l	a2,d0
 	add.l	d2,d0
 	cmp.l	adpcm_work_end(pc),d0
@@ -6104,7 +6072,7 @@ nmdb7:				*nmdb!!
 	bne	bin_trns_md
 mtrs_lp01:
 	move.b	(a1)+,d0
-	cmpi.b	#$1a,d0
+	cmpi.b	#EOF,d0
 	beq	t_dat_ok
 	cmpi.b	#'.',d0
 	bls	mtrs_lp01	*セパレータスキップ
@@ -6363,6 +6331,7 @@ ttl_tab:
 clc_ttl0:
 	dbra	d1,clc_ttl_lp03
 clc_ttl_all_end:
+	.ifdef	__USE_ESC_SEQUENCE__
 	lea	_0d(pc),a0
 	bsr	prta0
 
@@ -6373,13 +6342,24 @@ clc_ttl_all_end:
 	dbra	d3,@b
 	bra	t_dat_ok
 
-_0d:	dc.b	$0d,0
-b_up:	dc.b	$0b,0
+_0d:	dc.b	CR,0
+b_up:	dc.b	VT,0
+	.else
+	subq.b	#4,d2
+	beq	t_dat_ok	*改行したばかり
+
+	pea	(CRLF,pc)
+	DOS	_PRINT
+	addq.l	#4,sp
+	bra	t_dat_ok
+	.endif
+
 
 set_clc_patch1:			*レジスタ破壊禁止	*パッチ当て処理その1
 	move.w	#BRA+(goto_ple.and.$ff),loop_ope-work(a6)
 	move.w	#BRA+(goto_m_int_lp.and.$ff),se_ope-work(a6)
-	rts
+	bra	cache_flush
+**	rts
 
 set_clc_patch2:			*レジスタ破壊禁止	*パッチ当て処理その2
 	move.l	d0,-(sp)
@@ -6391,7 +6371,8 @@ set_clc_patch2:			*レジスタ破壊禁止	*パッチ当て処理その2
 	move.l	d0,port_patch-work(a6)
 	move.l	d0,waon_patch-work(a6)
 	move.l	(sp)+,d0
-	rts
+	bra	cache_flush
+**	rts
 
 set_clc_patch3:			*レジスタ破壊禁止	*パッチ当て処理その3
 	pea	(a1)
@@ -6404,7 +6385,8 @@ set_clc_patch3:			*レジスタ破壊禁止	*パッチ当て処理その3
 	move.l	wrt_tmp(pc),(a1)+
 	move.l	#BRA*65536+((next_cmd-wrt_tmp-2).and.$ffff),wrt_tmp-work(a6)
 	move.l	(sp)+,a1
-	rts
+	bra	cache_flush
+**	rts
 
 back_patch:
 	movem.l	d0/a0,-(sp)
@@ -6421,7 +6403,8 @@ back_patch:
 	move.l	d0,len0_patch-w_com_patch(a0)
 	move.l	d0,opmd_y2_ope-w_com_patch(a0)
 	movem.l	(sp)+,d0/a0
-	rts
+	bra	cache_flush
+**	rts
 
 back_patch1:
 	move.l	d0,-(sp)
@@ -6429,7 +6412,8 @@ back_patch1:
 	move.w	d0,se_ope-work(a6)
 	move.l	d0,loop_ope-work(a6)		*当てたパッチを戻す
 	move.l	(sp)+,d0
-	rts
+	bra	cache_flush
+**	rts
 
 back_patch3:
 	pea	(a1)
@@ -6439,7 +6423,8 @@ back_patch3:
 	move.l	(a1)+,dec_gate-work(a6)
 	move.l	(a1)+,wrt_tmp-work(a6)
 	move.l	(sp)+,a1
-	rts
+	bra	cache_flush
+**	rts
 
 fade_out:			*ﾌｪｰﾄﾞｱｳﾄ/ｲﾝ処理
 	*   cmd=$1a
@@ -7968,40 +7953,104 @@ m1_print:			*M!のSEQ SONG0のNAME設定
 	dbra	d3,@b
 	bra	t_dat_ok
 
-skip_peri:
-	* < a0.l=filename addr
-@@:
-	cmpi.b	#'.',(a0)
-	bne	@f
-	addq.w	#1,a0
-	bra	@b
-@@:
+
+* 1997/02/24 Eriko.
+* {
+
+strlen_lo20end:
+	move.l	a0,d0
+@@:	cmpi.b	#$20,(a0)+
+	bhi	@b
+	subq.l	#1,a0
+	exg	d0,a0
+	sub.l	a0,d0
 	rts
 
-kakuchoshi:			*拡張子を設定
-	* < a0=filename address
-	* < a1=拡張子アドレス
-	* X a0
-	bsr	skip_peri
-	moveq.l	#91-1,d0
-kkchs_lp:
-	move.b	(a0)+,d0
-	beq	do_kkchs
-	cmpi.b	#'.',d0
-	beq	find_period
-	dbra	d0,kkchs_lp
-do_kkchs:
+kakuchoshi_change:
+	* 拡張子を変更する.
+	* in	a0.l	ファイル名アドレス
+	* in	a1.l	拡張子アドレス('.'は含まない3byte)
+	* break	d0/a0-a1
+	bsr	search_last_delimiter
+@@:
+	bsr	getstrchar
+	beq	kakuchoshi_add
+	cmpi	#'.',d0
+	bne	@b
+	bsr	strlen_lo20end
+	subq.l	#3,d0
+	bhi	@b
+kakuchoshi_add:
 	subq.l	#1,a0
 	move.b	#'.',(a0)+
 	move.b	(a1)+,(a0)+
 	move.b	(a1)+,(a0)+
 	move.b	(a1)+,(a0)+
-	clr.b	(a0)
+	clr.b	(a0)+
 	rts
-find_period:
-	cmpi.b	#' ',(a0)
-	bls	do_kkchs	*'.'はあっても拡張子がないケース
+
+kakuchoshi:
+	* 拡張子がなければ付加する.
+	* in	a0.l	ファイル名アドレス
+	* in	a1.l	拡張子アドレス('.'は含まない3byte)
+	* break	d0/a0-a1
+	bsr	search_last_delimiter
+@@:
+	bsr	getstrchar
+	beq	kakuchoshi_add
+	cmpi	#'.',d0
+	bne	@b
+	bsr	strlen_lo20end
+	subq.l	#3,d0
+	bhi	@b			;a.bcde -> a.bcde.EXT
 	rts
+
+search_last_delimiter:
+	* 文字列中最後に現れるパスの区切り記号(:,/,\)の次のアドレスを得る.
+	* in	a0.l	ファイル名アドレス
+	* out	a0.l	最後に見つけた区切り記号の次のアドレス
+	* break	d0
+	move.l	a0,-(sp)
+	bra	search_last_del_next
+search_last_del_loop:
+	cmpi	#':',d0
+	beq	@f
+	cmpi	#'/',d0
+	beq	@f
+	cmpi	#'\',d0
+	bne	search_last_del_next
+@@:
+	move.l	a0,(sp)
+search_last_del_next:
+	bsr	getstrchar
+	bne	search_last_del_loop
+search_last_del_end:
+	movea.l	(sp)+,a0
+	rts
+
+getstrchar:
+	* 文字列から一文字取り出す(マルチバイト文字対応).
+	* in	a0.l	文字列のアドレス
+	* out	d0.w	文字コード
+	* out	a0.l	次の文字のアドレス
+	* out	ccr	(tst.w d0)
+	moveq	#0,d0
+	move.b	(a0)+,d0
+	bpl	@f
+	cmpi.b	#$a0,d0
+	bcs	1f
+	cmpi.b	#$e0,d0
+	bcs	@f
+1:	tst.b	(a0)
+	beq	@f
+	lsl.w	#8,d0
+	move.b	(a0)+,d0
+@@:	tst	d0
+	rts
+
+* 1997/02/24 Eriko.
+* }
+
 
 clr_adpb?:
 	tst.b	adpb_clr-work(a6)
@@ -8352,6 +8401,7 @@ mask_channels:
 	st.b	ch_tr_msk-work(a6)
 @@:
 	move.w	d0,se_ope-work(a6)
+	bsr	cache_flush
 	moveq.l	#ch_max-1,d5
 mskc_lp00:
 	lea	play_trk_tbl(pc),a0
@@ -8611,6 +8661,7 @@ all_tr_en:				*全解除
 	lea	wk_size(a5),a5
 	dbra	d1,@b
 	move.w	#NOP,se_ope-work(a6)	*ALL ENABLEのケース
+	bsr	cache_flush
 	bra	t_dat_ok
 chk_all_en?:
 	lea	play_trk_tbl(pc),a1
@@ -8624,9 +8675,11 @@ chk_all_en?:
 	dbra	d1,@b
 @@:
 	move.w	#NOP,se_ope-work(a6)	*ALL ENABLEのケース
+	bsr	cache_flush
 	bra	t_dat_ok
 cae1:						*１チャンネルでもマスクする場合
 	move.w	#BRA+(goto_m_int_lp.and.$ff),se_ope-work(a6)
+	bsr	cache_flush
 	bra	t_dat_ok
 
 set_output_level2:		*各トラックの出力レベルの設定
@@ -8761,9 +8814,11 @@ intercept_play:
 	tst.l	d2
 	bpl	@f
 	move.l	#BRA*65536+((tmf_1-m_play00-2).and.$ffff),m_play00-work(a6)
-	rts
+	bra	cache_flush
+**	rts
 @@:
 	move.l	m_play00_bak(pc),m_play00-work(a6)
+	bsr	cache_flush
 	tst.l	d2
 	beq	m_play00
 	bra	t_dat_ok
@@ -9222,6 +9277,20 @@ do_fclose:
 	addq.w	#2,sp
 	rts
 
+cache_flush:
+		cmpi.b	#2,($cbc)
+		bcs	cache_flush_end
+		move.l	d1,-(sp)
+		move.l	d0,-(sp)
+		moveq	#3,d1
+		.cpu	68020
+		jsr	([$400+_SYS_STAT*4])
+		.cpu	68000
+		move.l	(sp)+,d0
+		move.l	(sp)+,d1
+cache_flush_end:
+		rts
+
 *----------------------------------------
 	*t_系のコマンドのエラーは
 	*d0.l=エラーコード
@@ -9359,9 +9428,9 @@ goto_crlf:			*改行までスキップ
 	move.l	d0,-(sp)
 @@:
 	move.b	(a0)+,d0
-	cmpi.b	#$1a,d0
+	cmpi.b	#EOF,d0
 	beq	@f
-	cmpi.b	#$0a,d0
+	cmpi.b	#LF,d0
 	bne	@b
 @@:
 	move.l	(sp)+,d0
@@ -9795,79 +9864,80 @@ renp_last?:			*誤差を考慮
 
 renp_srch_key:			*途中に特殊コマンドがあってキーコードを見失った場合
 	* < d0.b=zmd code
-	lea	rsk_tbl(pc),a5
+	lea	(rsk_tbl,pc),a5
+	bra	@f
+renp_srch_key_loop:
+	move	a5,-(sp)
+	lsr	(sp)+
+	bcc	@f
+	addq.l	#1,a5		;even
 @@:
-	move.b	(a5)+,d1
-	lsl.w	#8,d1
-	move.b	(a5)+,d1
-	tst.w	d1
+	move	(a5)+,d1
 	beq	m_err44
 rsk_lp00:
 	move.b	(a5)+,d2
-	beq	@b
+	beq	renp_srch_key_loop
 	cmp.b	d0,d2
 	bne	rsk_lp00
 	jmp	rsk_tbl(pc,d1.w)
 
 rsk_tbl:
-	dc.w	_rnp_gt_st-rsk_tbl
-	dc.b	$80
-	dc.b	0
-	dc.w	_rnp_gt_tie-rsk_tbl
-	dc.b	$d0
-	dc.b	0
-	dc.w	rsk_case_port-rsk_tbl
-	dc.b	$e0
-	dc.b	0
-	dc.w	rsk_case_waon-rsk_tbl
-	dc.b	$e2
-	dc.b	0
-	dc.w	rsk_plus1-rsk_tbl
-	dc.b	$81,$82,$83,$84,$85,$86,$87
-	dc.b	$88,$89,$8a,$8b,$8c,$8d,$8e,$8f
-	dc.b	$b0,$b1,$b2,$b3
-	dc.b	$bf
-	dc.b	0
-	dc.w	rsk_plus2-rsk_tbl
-	dc.b	$a0,$a1,$a2,$a3,$a4,$a5,$a6,$a7
-	dc.b	$a8,$a9,$aa,$ab,$ac,$ad,$ae,$af
-	dc.b	$b4,$b6,$b7,$b8,$b9,$bb,$bc,$bd,$be
-	dc.b	$c0,$c1,$c2,$c3,$c4,$c5,$c6,$c7
-	dc.b	$c8,$c9,$ca,$cb,$cc,$cd,$ce,$cf
-	dc.b	$d9,$da,$db
-	dc.b	0
-	dc.w	rsk_plus3-rsk_tbl
-	dc.b	$90,$91,$92,$93,$94,$95,$96,$97
-	dc.b	$98,$99,$9b,$9c,$9d,$9e,$9f
-	dc.b	$b5
-	dc.b	$d3,$d4,$d5,$d7
-	dc.b	$d8,$dc,$dd,$de,$df
-	dc.b	$e6,$e9
-	dc.b	0
-	dc.w	rsk_plus4-rsk_tbl
-	dc.b	$9a
-	dc.b	$eb
-	dc.b	0
-	dc.w	rsk_plus5-rsk_tbl
-	dc.b	$d1,$d2,$d6
-	dc.b	$e8
-	dc.b	0
-	dc.w	rsk_plus9-rsk_tbl
-	dc.b	$ba
-	dc.b	$e3
-	dc.b	0
-	dc.w	rsk_plus10-rsk_tbl
-	dc.b	$ef
-	dc.b	0
-	dc.w	rsk_plus12-rsk_tbl
-	dc.b	$e1
-	dc.b	0
-	dc.w	rsk_plus18-rsk_tbl
-	dc.b	$ee
-	dc.b	0
-
-	dc.w	0	*end code
+	.dc	_rnp_gt_st-rsk_tbl
+	.dc.b	$80,0
 	.even
+	.dc	_rnp_gt_tie-rsk_tbl
+	.dc.b	$d0,0
+	.even
+	.dc	rsk_case_port-rsk_tbl
+	.dc.b	$e0,0
+	.even
+	.dc	rsk_case_waon-rsk_tbl
+	.dc.b	$e2,0
+	.even
+	.dc	rsk_plus1-rsk_tbl
+	.dc.b	$81,$82,$83,$84,$85,$86,$87
+	.dc.b	$88,$89,$8a,$8b,$8c,$8d,$8e,$8f
+	.dc.b	$b0,$b1,$b2,$b3
+	.dc.b	$bf,0
+	.even
+	.dc	rsk_plus2-rsk_tbl
+	.dc.b	$a0,$a1,$a2,$a3,$a4,$a5,$a6,$a7
+	.dc.b	$a8,$a9,$aa,$ab,$ac,$ad,$ae,$af
+	.dc.b	$b4,$b6,$b7,$b8,$b9,$bb,$bc,$bd,$be
+	.dc.b	$c0,$c1,$c2,$c3,$c4,$c5,$c6,$c7
+	.dc.b	$c8,$c9,$ca,$cb,$cc,$cd,$ce,$cf
+	.dc.b	$d9,$da,$db,0
+	.even
+	.dc	rsk_plus3-rsk_tbl
+	.dc.b	$90,$91,$92,$93,$94,$95,$96,$97
+	.dc.b	$98,$99,$9b,$9c,$9d,$9e,$9f
+	.dc.b	$b5
+	.dc.b	$d3,$d4,$d5,$d7
+	.dc.b	$d8,$dc,$dd,$de,$df
+	.dc.b	$e6,$e9,0
+	.even
+	.dc	rsk_plus4-rsk_tbl
+	.dc.b	$9a
+	.dc.b	$eb,0
+	.even
+	.dc	rsk_plus5-rsk_tbl
+	.dc.b	$d1,$d2,$d6
+	.dc.b	$e8,0
+	.even
+	.dc	rsk_plus9-rsk_tbl
+	.dc.b	$ba
+	.dc.b	$e3,0
+	.even
+	.dc	rsk_plus10-rsk_tbl
+	.dc.b	$ef,0
+	.even
+	.dc	rsk_plus12-rsk_tbl
+	.dc.b	$e1,0
+	.even
+	.dc	rsk_plus18-rsk_tbl
+	.dc.b	$ee,0
+	.even
+	.dc	0	*end code
 
 rsk_plus18:
 	lea	18(a2),a2
@@ -9899,15 +9969,9 @@ rsk_plus1:
 
 rsk_case_port:			*連符内にポルタメント指定があった場合の処理
 	movem.l	d2/d4-d6,-(sp)
-	move.b	2(a2),d0
-	lsl.w	#8,d0
-	move.b	3(a2),d0	*d0.w=step
-	move.b	6(a2),d5
-	lsl.w	#8,d5
-	move.b	7(a2),d5	*d5.w=delay
-	move.b	8(a2),d2
-	lsl.w	#8,d2
-	move.b	9(a2),d2	*d2.w=step
+	MOVEW2	(2,a2),(3,a2),d0	*d0.w=step
+	MOVEW2	(6,a2),(7,a2),d5	*d5.w=delay
+	MOVEW2	(8,a2),(9,a2),d2	*d2.w=step
 	sub.w	d5,d0
 	subq.w	#1,d0		*for dbra
 	bcs	m_err41
@@ -9928,9 +9992,7 @@ port_simu:			*逆算
 	move.b	d1,3(a2)	*set real step time
 	sub.w	d5,d1
 	bls	m_err59		*delay too long
-	move.b	4(a2),d0
-	lsl.w	#8,d0
-	move.b	5(a2),d0	*d0.w=gate
+	MOVEW2	(4,a2),(5,a2),d0	*d0.w=gate
 	cmpi.w	#-1,d0
 	beq	@f		*タイならゲートタイムの計算はしない
 	move.l	d1,d0
@@ -9969,9 +10031,7 @@ port_simu:			*逆算
 	bra	mml_lp
 
 rsk_case_waon:			*連符内に和音があった場合の処理
-	move.b	3(a2),d0
-	lsl.w	#8,d0
-	move.b	4(a2),d0
+	MOVEW2	(3,a2),(4,a2),d0
 	cmpi.w	#$ffff,d0	*gate time (tie?)
 	bne	rp_not_tie_waon
 				*case tie
@@ -13168,7 +13228,9 @@ dev_init:				*デバイスドライバとしての初期化
 	move.l	sp,_sp_buf-work(a6)
 	lea	-260(sp),sp
 	move.l	sp,dmy_seq_wk-work(a6)
+	.ifdef	__USE_ORIGINAL_FONT__
 	bsr	gj_copy
+	.endif
 	movea.l	18(a5),a4		*parameter pointer
 di_lp01:
 	tst.b	(a4)+
@@ -13211,7 +13273,9 @@ exec:				*コマンドラインから実行した時
 	move.l	sp,_sp_buf-work(a6)
 	lea	-260(sp),sp
 	move.l	sp,dmy_seq_wk-work(a6)
+	.ifdef	__USE_ORIGINAL_FONT__
 	bsr	gj_copy
+	.endif
 
 	move.l	a0,a0work-work(a6)
 	move.l	a1,a1work-work(a6)
@@ -13231,8 +13295,7 @@ lop1:
 	bne	@f
 	pea	zm_opt(pc)
 	jsr	search_env-work(a6)
-	addq.w	#4,sp
-	tst.l	d0
+	move.l	d0,(sp)+
 	bmi	@f
 	move.l	a4,-(sp)
 	move.l	d0,a4
@@ -13272,6 +13335,8 @@ lop1:
 	move.l	d1,-(sp)
 	DOS	_KEEPPR			*常駐終了
 
+
+	.ifdef	__USE_ORIGINAL_FONT__
 gj_copy:
 	movem.l	d0-d2/a0-a1,-(sp)
 	lea	gaiji(pc),a0
@@ -13294,6 +13359,8 @@ gjc_lp:
 	dbra	d2,gjc_lp
 	movem.l	(sp)+,d0-d2/a0-a1
 	rts
+	.endif
+
 
 do_block_read:			*立ち上げ時にデータをリード
 	lea	h_work(pc),a1
@@ -13402,6 +13469,7 @@ init_all:			*ドライバの初期化
 	move.w	#RTS,d0
 	move.w	d0,init_inst-work(a6)
 	move.w	d0,init_midi-work(a6)
+	bsr	cache_flush
 @@:
 	bsr	init_midibd
 	moveq.l	#0,d0
@@ -13495,61 +13563,132 @@ neiro_:					*音色バッファの初期データ
 	.dc.b	$0a,$00,$02,$01,$00,$00,$01
 neiro_end_:
 keep_mes:
-	dc.b	$1b,'[37m'
-	if	(mpu=30.and.type<>3)
-	dc.b	$F3,'U',$F3,'N',$F3,'I',$F3,'V',$F3,'E',$F3,'R',$F3,'S',$F3,'A',$F3,'L '
-	elseif	(type<>3.and.type<>4)
-	dc.b	$F3,'1',$F3,'6',$F3,'b',$F3,'i',$F3,'t '
-	endif
-	if	type=3
-	dc.b	$F3,'R',$F3,'S',$F3,'-',$F3,'M',$F3,'I',$F3,'D',$F3,'I '
-	endif
-	if	type=4
-	dc.b	$F3,'P',$F3,'O',$F3,'L',$F3,'Y',$F3,'P',$F3,'H',$F3,'O',$F3,'N '
-	endif
-	dc.b	$F3,'V',$F3,'E',$F3,'R',$F3,'S',$F3,'I',$F3,'O',$F3,'N'
-	version
-	dc.b	$1b,'[m (C) 1991,1992,1993,1994 '
-	dc.b	$1b,'[36mZENJI SOFT',$1b,'[m',13,10,0
+	ESCseq	'[37m'
+	.if	type=3
+		DCF3B_S	'RS-MIDI'
+	.elseif	type=4
+		DCF3B_S	'POLYPHON'
+	.elseif	mpu=30
+		DCF3B_S	'UNIVERSAL'
+	.else
+		DCF3B_S	'16bit'
+	.endif
+	DCF3B_S	' VERSION '
+	DCF3B	'0'+(v_code>>4)
+	DCF3B	'.'
+	DCF3B	'0'+(v_code.and.$f)
+	DCF3B	'0'+(v_code_)
+	ESCseq	'[m'
+
+	.dc.b	' (C)1991,1992,1993,1994 '
+	ESCseq	'[36m'
+	.dc.b	'ZENJI SOFT'
+	ESCseq	'[m'
+	.dc.b	' ,1997/03/02 '
+	ESCseq	'[36m'
+	.dc.b	'立花えり子'
+	ESCseq	'[m'
+	.dc.b	'.'
+
+	.dc.b	CR,LF,0
+
 yes_midi:	dc.b	"MIDI/"
-no_midi:	dc.b	"FM･OPM/ADPCM are under the control of ZMUSIC.",13,10,0
+no_midi:	dc.b	"FM･OPM/ADPCM are under the control of ZMUSIC.",CR,LF,0
 	if	type=3
-already_mes:	dc.b	$1b,'[47mThe interrupt-vector has already been occupied by some other applications.',$1b,'[m',13,10,0
+already_mes:	ESCseq	'[47m'
+		.dc.b	'The interrupt-vector has already been occupied by some other applications.'
+		ESCseq	'[m'
+		.dc.b	CR,LF,0
 	else
-already_mes:	dc.b	$1b,'[47mMUSIC BIOS has already been included in your system.',$1b,'[m',13,10,0
+already_mes:	ESCseq	'[47m'
+		.dc.b	'MUSIC BIOS has already been included in your system.'
+		ESCseq	'[m'
+		.dc.b	CR,LF,0
 	endif
-already_mes2:	dc.b	$1b,"[47mDidn't you include a special ADPCM driver?",$1b,'[m',13,10,0
-out_mem_mes:	dc.b	$1b,'[47mOut of memory.',$1b,'[m',13,10,0
+already_mes2:	ESCseq	'[47m'
+		.dc.b	"Didn't you include a special ADPCM driver?"
+		ESCseq	'[m'
+		.dc.b	CR,LF,0
+out_mem_mes:	ESCseq	'[47m'
+		.dc.b	'Out of memory.'
+		ESCseq	'[m'
+		.dc.b	CR,LF,0
 secure_mes:	dc.b	'Secure ',0
-pcmbf_mes:	dc.b	'for ADPCM data buffer.',13,10,0
-wkbf_mes:	dc.b	'for work area.',13,10,0
-trkbf_mes:	dc.b	'for track buffer.',13,10,0
-kakuho_mes:	dc.b	'kByte(s)',$1b,'[m ',0
-atrb_0010:	dc.b	$1b,'[32m',0
-tm_a_mes:	dc.b	'Interrupt source:TIMER A',13,10,0
-sq_m_mes:	dc.b	'The external MIDI sequencer synchronizes with ZMUSIC.X',13,10,0
+pcmbf_mes:	dc.b	'for ADPCM data buffer.',CR,LF,0
+wkbf_mes:	dc.b	'for work area.',CR,LF,0
+trkbf_mes:	dc.b	'for track buffer.',CR,LF,0
+kakuho_mes:	dc.b	'kByte(s)'
+		ESCseq	'[m'
+		.dc.b	0
+atrb_0010:	ESCseq	'[32m'
+		.dc.b	0
+tm_a_mes:	dc.b	'Interrupt source:TIMER A',CR,LF,0
+sq_m_mes:	dc.b	'The external MIDI sequencer synchronizes with ZMUSIC.X',CR,LF,0
 	if	type=4
-pcm8_mode_mes_:	dc.b	'MIDI and ADPCM are managed by PCM8SB.X (C)H.ETOH',13,10,0
+pcm8_mode_mes_:	dc.b	'MIDI and ADPCM are managed by PCM8SB.X (C)H.ETOH',CR,LF,0
 	endif
-pcm8_mode_mes:	dc.b	'ADPCM is managed by PCM8.X (C)H.ETOH',13,10,0
-zmt:		dc.b	$1b,'[32m',$eb,$ee,$1b,'[31m-',$eb,$ef,$eb,$f0,$1b,'[m',$eb,$f1,$1b,'[31m',$eb,$f2,$eb,$f3,0
-kaijo:		dc.b	$1b,'[mhas been released from your system.',13,10,0
-not_kep_mes:	dc.b	$1b,'[mis not kept in your system.',13,10,0
-rls_er_mes:	dc.b	$1b,'[mis unable to release.',13,10,0
-ver_er_mes:	dc.b	$1b,'[47mIllegal version number. Unable to release.',$1b,'[m',13,10,0
-illegal_p:	dc.b	$1b,'[47mERROR',$1b,'[m',13,10,0
-unknown_mes:	dc.b	$1b,'[47mUnknown error!'
-		dc.b	$1b,'[m',13,10,0
-err_header:	dc.b	$1b,'[47m',0
-open_er_mes:	dc.b	' … File not found.',$1b,'[m',13,10,0
-write_er_mes:	dc.b	' … Write error.',$1b,'[m',13,10,0
-read_er_mes:	dc.b	' … Unable to read.',$1b,'[m',13,10,0
-work_er_mes:	dc.b	$1b,'[47mWork area is not enough.',$1b,'[m',13,10,0
-out_trk_mes:	dc.b	$1b,'[47mTrack buffer is not enough.',$1b,'[m',13,10,0
+pcm8_mode_mes:	dc.b	'ADPCM is managed by PCM8.X (C)H.ETOH',CR,LF,0
+
+	.ifdef	__USE_ORIGINAL_FONT__
+zmt:		ESCseq	'[32m'
+		.dc.b	'・'		;Ｚ
+		ESCseq	'[31m'
+		.dc.b	'-・・'		;ｍｕ
+		ESCseq	'[m'
+		.dc.b	'・'		;Ｓ
+		ESCseq	'[31m'
+		.dc.b	'・・',0	;ｉＣ
+	.else
+zmt:		.dc.b	'Z-MUSIC ',0
+	.endif
+
+kaijo:		ESCseq	'[m'
+		.dc.b	'has been released from your system.',CR,LF,0
+not_kep_mes:	ESCseq	'[m'
+		.dc.b	'is not kept in your system.',CR,LF,0
+rls_er_mes:	ESCseq	'[m'
+		.dc.b	'is unable to release.',CR,LF,0
+ver_er_mes:	ESCseq	'[47m'
+		.dc.b	'Illegal version number. Unable to release.'
+		ESCseq	'[m'
+		.dc.b	CR,LF,0
+illegal_p:	ESCseq	'[47m'
+		.dc.b	'ERROR'
+		ESCseq	'[m'
+		.dc.b	CR,LF,0
+unknown_mes:	ESCseq	'[47m'
+		.dc.b	'Unknown error!'
+		ESCseq	'[m'
+		.dc.b	CR,LF,0
+err_header:	ESCseq	'[47m'
+		.dc.b	0
+open_er_mes:	dc.b	' … File not found.'
+		ESCseq	'[m'
+		.dc.b	CR,LF,0
+write_er_mes:	dc.b	' … Write error.'
+		ESCseq	'[m'
+		.dc.b	CR,LF,0
+read_er_mes:	dc.b	' … Unable to read.'
+		ESCseq	'[m'
+		.dc.b	CR,LF,0
+work_er_mes:	ESCseq	'[47m'
+		.dc.b	'Work area is not enough.'
+		ESCseq	'[m'
+		.dc.b	CR,LF,0
+out_trk_mes:	ESCseq	'[47m'
+		.dc.b	'Track buffer is not enough.'
+		ESCseq	'[m'
+		.dc.b	CR,LF,0
 no_as_er_mes1:	dc.b	'TRACK ',0
-no_as_er_mes2:	dc.b	' … NOT ASSIGNED.',13,10,0
-b_clr_st:	dc.b	$1b,'[J',0
-b_era_st:	dc.b	$1b,'[2K',0
+no_as_er_mes2:	dc.b	' … NOT ASSIGNED.',CR,LF,0
+
+	.ifdef	__USE_ESC_SEQUENCE__
+b_clr_st:	ESCseq	'[J'
+		.dc.b	0
+b_era_st:	ESCseq	'[2K'
+		.dc.b	0
+	.endif
+
 		*MML COMPILE ERROR MESSAGE
 err_mes2:	dc.b	'| TRACK #',0
 err_mes5:	dc.b	'TRACK BUFFER IS TOO SMALL',0
@@ -13632,33 +13771,47 @@ EFFECTS:	dc.b	'EFFECTS',0	*=
 
 error_mes:	dc.b	' (No.',0
 kakko_toji:	dc.b	')'
-crlf:		dc.b	13,10,0
-how_many_err:	dc.b	' ERROR(S)',13,10,0
-no_err_mes:	dc.b	'Operations are all set.',13,10
-		dc.b	'A ',$1b,'[37m','♪SOUND',$1b,'[m mind in a '
-		dc.b	$1b,'[37mSOUND',$1b,'[m',' body.',13,10,0
+crlf:		dc.b	CR,LF,0
+how_many_err:	dc.b	' ERROR(S)',CR,LF,0
+no_err_mes:	dc.b	'Operations are all set.',CR,LF
+		dc.b	'A '
+		ESCseq	'[37m'
+		.dc.b	'♪SOUND'
+		ESCseq	'[m'
+		.dc.b	' mind in a '
+		ESCseq	'[37m'
+		.dc.b	'SOUND'
+		ESCseq	'[m'
+		.dc.b	' body.',CR,LF,0
 print_calc:	dc.b	'Now calculating the total step time...',0
 sr_filename:		*メモリの有効利用?
-help_mes:	dc.b	$1b,'[37m< USAGE >'
-		dc.b	$1b,'[m ZMUSIC.X [Optional Switches] [-C･-Q <ZMS filename> [ZMD filename]]',13,10
-		dc.b	$1b,'[37m< OPTIONAL SWITCHES >',13,10,$1b,'[m'
-		dc.b	'-? or H      Display the list of optional switches.',13,10
-		dc.b	'-A	     Make ZMUSIC.X work on TIMER-A.',13,10
-		dc.b	'-B<filename> Include ADPCM block data.',13,10
-		dc.b	'-C	     Convert ZMS file into ZMD file.',13,10
+help_mes:	ESCseq	'[37m'
+		.dc.b	'< USAGE >'
+		ESCseq	'[m'
+		.dc.b	' ZMUSIC.X [Optional Switches] [-C･-Q <ZMS filename> [ZMD filename]]',CR,LF
+		ESCseq	'[37m'
+		.dc.b	'< OPTIONAL SWITCHES >'
+		ESCseq	'[m'
+		.dc.b	CR,LF
+		dc.b	'-? or H      Display the list of optional switches.',CR,LF
+		dc.b	'-A	     Make ZMUSIC.X work on TIMER-A.',CR,LF
+		dc.b	'-B<filename> Include ADPCM block data.',CR,LF
+		dc.b	'-C	     Convert ZMS file into ZMD file.',CR,LF
 sv_filename:
 	if	(type<>3.and.type<>4)
-		dc.b	'-E	     Synchronize an external MIDI sequencer.',13,10
+		dc.b	'-E	     Synchronize an external MIDI sequencer.',CR,LF
 	endif
-		dc.b	'-P<n>	     Secure n kBytes for ADPCM data buffer.(default=256kB)',13,10
-		dc.b	'-Q	     Convert ZMS file into ZMD file and calculate the total step count.',13,10
-		dc.b	'-R	     Release ZMUSIC.X from the system.',13,10
-		dc.b	'-S<filename> Include start-up file.',13,10
-		dc.b	'-T<n>	     Secure n kBytes for the MML track buffer.(default=128kB)',13,10
-		dc.b	'-W<n>	     Secure n kBytes for a work area.(default=12kB)',13,10
-		dc.b	$1b,'[37m< NOTICE >',13,10
-		dc.b	"'-C' or '-Q' must be set in the last.",13,10
-		dc.b	$1b,'[m',0
+		dc.b	'-P<n>	     Secure n kBytes for ADPCM data buffer.(default=256kB)',CR,LF
+		dc.b	'-Q	     Convert ZMS file into ZMD file and calculate the total step count.',CR,LF
+		dc.b	'-R	     Release ZMUSIC.X from the system.',CR,LF
+		dc.b	'-S<filename> Include start-up file.',CR,LF
+		dc.b	'-T<n>	     Secure n kBytes for the MML track buffer.(default=128kB)',CR,LF
+		dc.b	'-W<n>	     Secure n kBytes for a work area.(default=12kB)',CR,LF
+		ESCseq	'[37m'
+		.dc.b	'< NOTICE >',CR,LF
+		dc.b	"'-C' or '-Q' must be set in the last.",CR,LF
+		ESCseq	'[m'
+		.dc.b	0
 zm_opt:		dc.b	'zm_opt',0
 	.text
 	.even
@@ -13870,8 +14023,8 @@ chk_dev_lp:
 	beq	chk_dev_lp
 	cmpi.b	#'-',d0		*その他スイッチ処理へ
 	beq	other_sw
-	cmpi.b	#'/',d0
-	beq	other_sw
+*	cmpi.b	#'/',d0
+*	beq	other_sw
 	cmpi.b	#'#',d0
 	beq	get_bfsz	＃ならば次にはトラックバッファサイズ
 	bra	chk_dev_lp
@@ -13938,6 +14091,7 @@ poly_mode:
 	move.w	d2,poly_ch-work(a6)
 	move.w	#BRA+((poly_play-poly_-2).and.$ff),poly_-work(a6)
 	move.w	#RTS,PCM8KOFF-work(a6)
+	bsr	cache_flush
 *	move.l	#adpcm_n_max_default,adpcm_n_max-work(a6)
 	moveq.l	#$7f,d4
 	jsr	chk_num-work(a6)
@@ -13954,6 +14108,7 @@ poly_mode:
 slow_init:
 	move.l	#BSR*65536+((f7_wait-inmd0-2).and.$ffff),inmd0-work(a6)
 	move.l	#BSR*65536+((f7_wait-inmd1-2).and.$ffff),inmd1-work(a6)
+	bsr	cache_flush
 	bra	chk_dev_lp
 
 no_init:
@@ -14309,7 +14464,7 @@ already_bye:
 chk_board:			*MIDIボードのチェック
 
 	if	type=0		*MIDI I/F
-	bsr	rewrt_ff
+*	bsr	rewrt_ff
 	move.w	#1,-(sp)
 	pea	icr
 	pea	isr
@@ -14321,20 +14476,20 @@ chk_board:			*MIDIボードのチェック
 	bra	mdbd_patch
 
 	elseif	type=3		*RS-MIDI
-	bsr	rewrt_ff
+*	bsr	rewrt_ff
 	st.b	midi_board-work(a6)
 	bra	mdbd_patch
 
 	elseif	type=4		*POLYPHON
 
-	bsr	rewrt_ff
+*	bsr	rewrt_ff
 	st.b	midi_board-work(a6)
 	rts
 
 	endif
 
 find_dev_name:				*コマンドからドライバが実行された場合に
-	lea	$6800,a0		*デバイス名 "ＯＰＭ" を強制的に登録する
+	lea	($6800),a0		*デバイス名 "ＯＰＭ" を強制的に登録する
 fdn_lp01:
 	lea	NUL(pc),a2
 	pea	(a2)
@@ -14409,27 +14564,26 @@ kill_it:
 	bra	kmcp
 	endif
 
-rewrt_ff:			*$ff50～$ff7fを$ff80～$ffafに移動する
-	movem.l	d0/a0-a1,-(sp)
-	DOS	_VERNUM
-	cmpi.w	#$0300,d0
-	bcs	exit_rwff
-	lea	rw_tbl(pc),a0
-@@:
-	move.l	(a0)+,d0
-	beq	exit_rwff
-	lea	rw_tbl(pc,d0.l),a1
-	add.w	#$30,(a1)
-	bra	@b
-exit_rwff:
-	movem.l	(sp)+,d0/a0-a1
-	rts
-
-rw_tbl:
-	dc.l	rwff1-rw_tbl
-	dc.l	rwff2-rw_tbl
-	dc.l	rwff3-rw_tbl
-	dc.l	0
+*rewrt_ff:			*$ff50～$ff7fを$ff80～$ffafに移動する
+*	movem.l	d0/a0-a1,-(sp)
+*	DOS	_VERNUM
+*	cmpi.w	#$0300,d0
+*	bcs	exit_rwff
+*	lea	rw_tbl(pc),a0
+*@@:
+*	move.l	(a0)+,d0
+*	beq	exit_rwff
+*	lea	rw_tbl(pc,d0.l),a1
+*	add.w	#$30,(a1)
+*	bra	@b
+*exit_rwff:
+*	movem.l	(sp)+,d0/a0-a1
+*	rts
+*rw_tbl:
+*	dc.l	rwff1-rw_tbl
+*	dc.l	rwff2-rw_tbl
+*	dc.l	rwff3-rw_tbl
+*	dc.l	0
 
 set_patch:			*-a,-e,-i,-m スイッチ処理
 	movem.l	d0/a0-a1,-(sp)
@@ -14453,6 +14607,7 @@ set_patch:			*-a,-e,-i,-m スイッチ処理
 	bne	@f
 	move.w	#BRA+((sr_restore_e-sr_restore-2).and.$ff),sr_restore-work(a6)
 	move.w	#RTE,int_rte-work(a6)
+	bsr	cache_flush
 *	bra	set_tm_patch		*!2.04
 @@:
 	lea	copy_key(pc),a0
@@ -14480,6 +14635,7 @@ set_tm_patch:
 	move.l	#BRA*65536+((t_dat_ok-m_cont_patch-2).and.$ffff),m_cont_patch-work(a6)
 	move.l	#BRA*65536+((next_cmd-_@t_midi_clk-2).and.$ffff),_@t_midi_clk-work(a6)
 @@:
+	bsr	cache_flush
 	bsr	pcm8_patch
 	movem.l	(sp)+,d0/a0-a1
 	rts
@@ -14496,7 +14652,6 @@ nmdb_patch:
 	bra	do_ncp
 cnv_patch:				*コンパイルモードのパッチ
 	movem.l	d0-d1/a0,-(sp)
-	move.w	#NOP,cf_patch-work(a6)
 	lea	cp_tbl(pc),a0
 	bra	do_ncp
 non_cnv_patch:
@@ -14522,7 +14677,8 @@ do_ncp:
 	bra	@b
 exit_ncp:
 	movem.l	(sp)+,d0-d1/a0
-	rts
+	bra	cache_flush
+**	rts
 
 *	dc.w	書き換えアドレス先アドレス-work,ジャンプ先アドレス-書き換え先アドレス-2
 ncp_tbl:
@@ -14814,8 +14970,7 @@ release:			*解除処理
 	DOS	_SETBLOCK
 	addq.w	#8,sp
 
-	move.l	#$0d,d1		*init_all
-	trap	#3
+	ZM	#$0d		*init_all
 
 	lea	support_mode(pc),a1	*サポートプログラムの解除
 	adda.l	d7,a1
@@ -14833,8 +14988,8 @@ sprl_lp:
 	pea	(a1,d0.l)		*filename
 	move.w	#2,-(sp)		*mode
 	DOS	_EXEC
-	addq.w	#2,sp
-	clr.w	-(sp)			*mode
+*	addq.w	#2,sp
+	clr.w	(sp)			*mode
 	DOS	_EXEC
 	lea	14(sp),sp
 	movem.l	h_work(pc),d0-d7/a0-a7
@@ -14920,13 +15075,20 @@ go_user_bye:
 
 prt_zmt:
 	movem.l	d0-d2/a1,-(sp)
+	.ifdef	__USE_ORIGINAL_FONT__
 	move.l	_sp_buf(pc),a1
 	bsr	do_gj
 	lea	zmt(pc),a0
 	bsr	prta0
 	bsr	do_gj
+	.else
+	lea	(zmt,pc),a0
+	bsr	prta0
+	.endif
 	movem.l	(sp)+,d0-d2/a1
 	rts
+
+	.ifdef	__USE_ORIGINAL_FONT__
 do_gj:
 	move.l	#$0008_7670,d1
 	moveq.l	#6-1,d2
@@ -14936,6 +15098,8 @@ def_gj_lp:
 	lea	32(a1),a1
 	dbra	d2,def_gj_lp
 	rts
+	.endif
+
 
 release_mes:
 	bsr	prt_zmt
@@ -15086,7 +15250,7 @@ noteq:
 kill_OPM:			*デバイス名の除去
 	* > eq=no error
 	* > mi=error
-	lea	$6800,a0		*デバイス名”ＯＰＭ”を強制的に削除する
+	lea	($6800),a0		*デバイス名”ＯＰＭ”を強制的に削除する
 KO_lp01:
 	lea	NUL(pc),a2
 	pea	(a2)
@@ -15147,16 +15311,18 @@ exit_sdv:
 	rts
 				*ここから下は使い捨てのプログラム(非常駐部)
 go_compile:			*コンパイル動作
+	.ifdef	__USE_ESC_SEQUENCE__
 	lea	b_clr_st(pc),a0
 	bsr	prta0
+	.endif
 	bsr	prt_title
 
 	movea.l	a0work(pc),a0
 	movea.l	a1work(pc),a1
 	lea	$10(a0),a0	*メモリブロックの変更
 	suba.l	a0,a1
-	pea	(a1)
-	pea	(a0)
+	move.l	a1,-(sp)
+	move.l	a0,-(sp)
 	DOS	_SETBLOCK
 	addq.w	#8,sp
 
@@ -15196,7 +15362,17 @@ go_compile:			*コンパイル動作
 	jsr	skip_sep-work(a6)
 	tst.b	(a4)
 	bne	copy_dest_fn
-	bsr	mk_default_fn	*デフォルトのファイルネームを持ってくる
+
+	lea	(sr_filename,pc),a0	*destination file name
+	.if	1			* = ${source file name}:t:r.ZMD
+	jsr	(search_last_delimiter-work,a6)
+	.endif
+	lea	(sv_filename,pc),a1
+@@:	move.b	(a0)+,(a1)+
+	bne	@b
+	lea	(sv_filename,pc),a0
+	lea	(ZMD,pc),a1
+	jsr	(kakuchoshi_change-work,a6)
 	bra	do_compile
 copy_dest_fn:
 	lea	sv_filename(pc),a0
@@ -15372,8 +15548,8 @@ exit_dosv:			*コンパイルデータのセーブ
 
 	move.l	date_buf(pc),-(sp)
 	move.w	d5,-(sp)
-rwff2:
-	DOS	_V2_FILEDATE
+*rwff2:
+	DOS	_FILEDATE
 	addq.w	#6,sp
 
 	jsr	do_fclose-work(a6)
@@ -15388,11 +15564,14 @@ rwff2:
 	bsr	prta1
 
 	move.l	#NOP_NOP,wrt_tmp-work(a6)
+	bsr	cache_flush
 	moveq	#$19,d1
 	moveq.l	#0,d2
 	jsr	Z_MUSIC-work(a6)
+	.ifdef	__USE_ESC_SEQUENCE__
 	lea	b_era_st(pc),a0
 	bsr	prta0
+	.endif
 
 	bra	exit_compile_
 
@@ -15449,8 +15628,7 @@ get_sr_fsize:
 
 	move.l	d4,-(sp)	*data size
 	DOS	_MALLOC
-	addq.w	#4,sp
-	tst.l	d0
+	move.l	d0,(sp)+
 	bmi	_out_mem_err
 	movea.l	d0,a4		*a4=address
 
@@ -15524,53 +15702,10 @@ sw_malloc:
 	* > d0.l=address
 	move.l	d0,-(sp)
 	DOS	_MALLOC
-	addq.w	#4,sp
-	tst.l	d0
+	move.l	d0,(sp)+
 	bmi	_out_mem_err
 	rts
 
-mk_default_fn:			*デフォルトのファイルネームを作る
-	movem.l	d0-d1/a0-a1,-(sp)
-	lea	sr_filename(pc),a0
-	jsr	skip_peri-work(a6)
-mdf_:
-	lea	sv_filename(pc),a1
-	moveq.l	#0,d1
-	tst.b	(a0)
-	bmi	@f
-	cmpi.b	#':',1(a0)
-	bne	@f
-	addq.w	#2,a0
-@@:
-mdf_lp:
-	move.b	(a0)+,d0
-	beq	exit_mdf
-	bpl	@f
-	cmpi.b	#$a0,d0
-	bcs	mdfknj
-	cmpi.b	#$df,d0
-	bls	@f
-mdfknj:
-	move.b	d0,(a1)+	*漢字はペア
-	move.b	(a0)+,(a1)+
-	bra	mdf_lp
-@@:
-	cmpi.b	#'\',d0
-	beq	mdf_
-	cmpi.b	#'.',d0
-	beq	exit_mdf
-*	bsr	mk_capital
-mdf0:
-	move.b	d0,(a1)+
-	bra	mdf_lp
-exit_mdf:
-	move.b	#'.',(a1)+
-	move.b	#'Z',(a1)+
-	move.b	#'M',(a1)+
-	move.b	#'D',(a1)+
-	clr.b	(a1)
-	movem.l	(sp)+,d0-d1/a0-a1
-	rts
 
 _read_err:			*read error
 	lea	sr_filename(pc),a0

@@ -121,8 +121,8 @@ sc_p_data:	dc.b	0		*1 byte転送時に使用
 tail:		dc.b	0,$f7		*ROLAND EXCLUSIVE TAIL
 
 SPC2:	dc.b	'  ',0
-CRLF:	dc.b	13,10,0
-	dc.b	09		*tab(ERROR CODE表示時に使用)	!!!順番と位置を
+CRLF:	dc.b	CR,LF,0
+	dc.b	TAB		*tab(ERROR CODE表示時に使用)	!!!順番と位置を
 suji:	dcb.b	11,0		*数値表示用			!!!変えては駄目
 
 	.even
@@ -404,10 +404,16 @@ MDD:		dc.b	'MDD',0
 
 	.even
 v_buffer:	ds.b	256		*汎用小バッファ
-read_mes1:	dc.b	"Block ADPCM data '",$1b,'[32m',0
-read_mes2:	dc.b	"Start up file '",$1b,'[32m',0
-cannot_read:	dc.b	$1b,"[33m' couldn't be found.",13,10,0
-default_adp:	dc.b	$1b,"[33m' has been included.",13,10,0
+read_mes1:	dc.b	"Block ADPCM data '"
+		ESCseq	'[32m'
+		.dc.b	0
+read_mes2:	dc.b	"Start up file '"
+		ESCseq	'[32m'
+		.dc.b	0
+cannot_read:	ESCseq	'[33m'
+		.dc.b	"' couldn't be found.",CR,LF,0
+default_adp:	ESCseq	'[33m'
+		.dc.b	"' has been included.",CR,LF,0
 vb_end:
 	.even
 filename:	ds.b	91		*読み込もうとするファイル名
@@ -415,20 +421,28 @@ open_fn:	ds.b	91		*実際にオープンするファイル名
 	.even
 h_work:		*スタートアップＺＰＤファイルのファイル名バッファ
 gaiji:		*外字データ (32*6=192Bytes あとで汎用ワークとなる)
+	.ifdef	__USE_ORIGINAL_FONT__
 	dc.w	$2002,$783f,$c7c6,$801c,$0038,$0060,$0cc0,$0380
 	dc.w	$06c0,$0c20,$1800,$3001,$63e3,$fc1e,$8006,$0000
 	dc.w	$0000,$0000,$0000,$0000,$1ddc,$2626,$2444,$0444
 	dc.w	$0888,$0888,$0889,$1111,$1112,$110c,$0000,$0000
 	dc.w	$0000,$0000,$0000,$0000,$0608,$0c08,$1410,$2410
 	dc.w	$4820,$0820,$0820,$1050,$1092,$0f0c,$0000,$0000
+	.else
+	.ds.b	96
+	.endif
 h_work2:
 stup_fnsv:	*スタートアップファイルのファイル名バッファ
+	.ifdef	__USE_ORIGINAL_FONT__
 	dc.w	$03c0,$0460,$0870,$0c20,$0c03,$060c,$0730,$63c6
 	dc.w	$63c6,$0ce0,$3060,$c030,$0430,$0e10,$0620,$03c0
 	dc.w	$0001,$0006,$000e,$000c,$0c1c,$081c,$001c,$181c
 	dc.w	$101c,$301c,$201c,$621c,$440c,$380e,$0006,$0001
 	dc.w	$e000,$1000,$0800,$0400,$1c00,$1c00,$1c00,$0800
 	dc.w	$0000,$0000,$0000,$0400,$0400,$0800,$1000,$e000
+	.else
+	.ds.b	96
+	.endif
 
 	if	(type<>3.and.type<>4)
 *	-uスイッチ用ワーク

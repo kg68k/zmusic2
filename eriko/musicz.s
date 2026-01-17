@@ -323,7 +323,7 @@ init:
 	move.w	#-1,sv_fh-work(a1)	*ファイルハンドル初期化
 	DOS	_ALLCLOSE		*念のため
 
-	DOS	_V2_GETPDB		*環境取得
+	DOS	_GETPDB			*環境取得
 	move.l	d0,a0
 	move.l	(a0),env_bak-work(a1)
 
@@ -3857,7 +3857,7 @@ read:
 @@:
 	move.l	d0,-(sp)
 	move.w	#2,-(sp)
-	DOS	_V2_MALLOC2
+	DOS	_MALLOC2
 	addq.w	#6,sp
 	tst.l	d0
 	bpl	@f
