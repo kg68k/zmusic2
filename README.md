@@ -73,7 +73,7 @@ ZMUSIC RS-MIDI v2.09+01です。
 * [用語解説](manual/glossary.txt)
 
 <!-- -->
-* 非公式情報: [既知の不具合](https://github.com/kg68k/x68.memo/blob/main/tool/bugs.md#z-music-version-208)
+* 非公式情報: [既知の不具合](KNOWNBUGS.md)
 
 
 ## Build
