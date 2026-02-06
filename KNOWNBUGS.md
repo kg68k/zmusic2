@@ -81,3 +81,26 @@
 * ZM16.MAN
   * `m_stat()`の引数「`track_bit_pattern`」は「`channel_no`」が正しい。詳しくはZMUSIC.Lの項を参照のこと。
 
+## ZMUSIC.L Version 2.01
+
+* `zm_ver()`: スーパーバイザモードで呼び出すとバスエラーが発生する。
+  * スーパーバイザになるための`DOS _SUPER`の返り値を見てユーザーモードに戻るための`_SUPER`を
+    省略しなければならないが、その処理が抜けているため。
+  * X-BASIC用外部関数MUSICZ.FNCのライブラリ版という位置付けのため、もともとスーパーバイザモードを
+    想定していないのかも。
+* `zm_ver()`: Z-MUSIC Ver.3が常駐していると、`0`(常駐していない)ではなくZ-MUSIC Ver.3のバージョン番号を返す。
+* `m_stat()`: 引数はチャンネル番号(または0=全チャンネル指定)なので、zmusic.hでの引数名`track_bit_pattern`
+  は正しくない。`m_assign()`に合わせると`channel_no`が適切。
+  * 備考：Z-MUSICのファンクション`$09`はビットマップで複数チャンネルを指定できるが、
+    MUSICZ.FNCとZMUSIC.Lはその呼び出し方法には対応していない。
+* `m_play()`, `m_stop()`, `m_cont()`: track_no?=='NASI'以降を無視しない。
+* `m_out()`: 引数に-1または'NASI'がない場合、スタック上の引数列の末尾を超えてメモリを読み込む。
+* `m_mute()`, `m_solo()`: ch_no?=='NASI'以降を無視しない。
+  * zmusic.hのコメントの「全トラック」は「全チャンネル」が正しい。
+* zmusic.h: m_trk()のMML_ptrなど、書き換えをしないchar\*引数にconstが付いていない。
+
+## Z-MUSIC Version 2.08e (MZL)
+
+* ZPCONV.R version 2.04d
+  * X68000(MPU 68000)で実行すると`IOCS _SYS_STAT`を呼び出して白帯になる。
+  * Z-MUSIC Version 2.08に同梱のZPCONV.R version 2.04を使えばよい。
