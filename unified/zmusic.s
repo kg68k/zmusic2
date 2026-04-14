@@ -8651,7 +8651,7 @@ get_1st_comment:			*最初のコメントを取り出す
 	lea	first_cmt(pc),a0
 	bra	t_dat_ok
 
-int_start:			*割り込みの停止(kill driver)
+int_start:			*割り込みの再開
 	*   cmd=$4f
 	bsr	m_stop_all
 	ori.b	#$08,$00e88015	*MFP FM_int ON
@@ -8717,7 +8717,7 @@ relative_uv:			*相対音量／相対ベロシティコマンドの記号交換
 
 intercept_play:
 	*   cmd=$54
-	* < d2.l<>0 interception mode
+	* < d2.l＝-1 interception mode
 	* < d2.l＝0 release interception & play
 	* < d2.l＝1 release interception
 	tst.l	d2
