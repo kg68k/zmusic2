@@ -83,6 +83,34 @@ ZMUSIC RS-MIDI v2.09+01です。
 <!-- -->
 * 非公式情報: [既知の不具合](KNOWNBUGS.md)
 
+### Z-MUSIC v2の常駐を確認する方法
+
+[MEASURE 10](manual/zm10.txt)に掲載されている常駐チェックコード(リスト1)は、
+Z-MUSIC v3が開発されるより前に作られたものなのでv3を除外する処理が入っていません。
+そのまま使うとv3(ZMSC3.X)が常駐しているときも常駐していると判定されてしまいます。
+
+下記のコードならv3は除外されます。
+```asm
+chk_drv:
+        * > eq＝常駐確認
+        * > mi＝常駐していない
+        move.l  $8c.w,a0
+        subq.w  #8,a0
+        cmpi.l  #'ZmuS',(a0)+
+        bne     chk_drv_err
+        cmpi.w  #'iC',(a0)+
+        bne     chk_drv_err
+        cmpi.w  #$3000,(a0)+    *バージョンが大きすぎる(ZMSC3.X)
+        bcc     chk_drv_err
+        moveq.l #0,d0
+        rts
+chk_drv_err:
+        moveq.l #-1,d0
+        rts
+```
+
+またはリスト1で常駐を確認したあと、常駐識別子の直後に置かれているバージョン番号が
+`$3000`未満であることを調べる方法もあります。
 
 ## Build
 
